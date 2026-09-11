@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 npm start             # serve the app on http://localhost:8173 (PORT overrides the port)
 npm test              # all browser suites, one summary
-npm test units        # one suite: tiling | guides | theme | units | e2e (substring match)
+npm test units        # one suite: tiling | guides | theme | units | placement | e2e
 node test/units.test.js   # the same suite, run directly
 npm run vendor        # copy pdf.js and pdf-lib from node_modules into vendor/
 node --check js/app.js    # syntax check; there is no build step and no linter
@@ -73,6 +73,25 @@ A 6 × 4 poster at 600 dpi thus uses the same memory as one sheet.
 
 CAUTION: Do not replace this method with one large canvas that the code divides
 into sheets. One canvas for the full poster needs gigabytes of memory.
+
+### The placement model
+
+`state.placement` is `{ cx, cy, w, h, rot }` in poster millimeters. The width and
+the height are both first class.
+
+`state.lockAspect` decides what `setPlacement()` does with the height. With the
+lock on, `setPlacement()` computes the height from the width and from the ratio of
+the artwork, thus a stretch is impossible. With the lock off, the caller owns both
+dimensions.
+
+`activeAspect()` gives the ratio that a fit or a scale keeps. With the lock on, it
+is the ratio of the artwork. With the lock off, it is the ratio of the box as it
+is now. A layout change or a `Fit` thus does not undo a deliberate stretch.
+
+`handlePoints(dest, free)` in `renderer.js` gives the resize handles. It is the
+one source for the drawing and for the hit test. The four edge midpoints appear
+only when `free` is true. Each handle carries its anchor point and the axes that
+it resizes, thus the drag code needs no special case for each handle.
 
 ### Color scheme
 
@@ -143,6 +162,10 @@ browser sanitizes the *value* to the new grid. When the unit control changed the
 step, the poster changed size with no warning. `sliderGrid()` gives the grid, and the
 input handler rounds to it.
 
+**The mouse wheel does nothing on the canvas.** Wheel zoom was there and it was
+removed. It fought with page scrolling on small windows, and the handles already
+size the artwork. Do not add it again without a request.
+
 **Rotation uses 90° steps only.** The bounding box of the placed artwork thus
 stays parallel to the axes, which keeps hit tests and resize handles simple. Free
 angles need a rotated-box hit test through all of `app.js`.
@@ -165,6 +188,7 @@ These are the suites:
 - The `guides` suite measures the contrast of the guides.
 - The `theme` suite tests the color scheme with `Emulation.setEmulatedMedia`.
 - The `units` suite tests the presets and the display layer.
+- The `placement` suite tests the handles and the ratio lock.
 - The `e2e` suite uploads a file, places it, exports the PDF, then reads the PDF back.
 
 Note: a top-level `const` in `Runtime.evaluate` stays after the call and collides

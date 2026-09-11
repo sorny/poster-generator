@@ -2,7 +2,7 @@
 
 import { PAGE_PRESETS, computeLayout, fitPlacement, placedAspect, placementRect } from './layout.js';
 import { loadSource } from './source.js';
-import { drawPreview, computeView, viewToPoster, corners, blankTiles, refreshTheme, HANDLE_SIZE } from './renderer.js';
+import { drawPreview, computeView, viewToPoster, handlePoints, blankTiles, refreshTheme, HANDLE_SIZE } from './renderer.js';
 import { buildPosterPdf } from './exporter.js';
 
 const $ = (id) => document.getElementById(id);
@@ -18,6 +18,7 @@ const el = {
   posterReadout: $('posterReadout'),
   fit: $('fit'), fill: $('fill'), center: $('center'), rotL: $('rotL'), rotR: $('rotR'),
   scale: $('scale'), scaleVal: $('scaleVal'), artW: $('artW'), artH: $('artH'), artReadout: $('artReadout'),
+  lockAspect: $('lockAspect'),
   dpi: $('dpi'), format: $('format'), quality: $('quality'), qualityVal: $('qualityVal'),
   qualityField: $('qualityField'), transparentField: $('transparentField'), transparent: $('transparent'),
   marks: $('marks'), labels: $('labels'), assembly: $('assembly'),
@@ -33,6 +34,7 @@ const state = {
   showGrid: true,
   busy: false,
   units: 'mm',
+  lockAspect: true,
   cfg: {
     preset: 'a4', orientation: 'portrait',
     cols: 2, rows: 3,
@@ -142,32 +144,58 @@ function readConfig() {
 /** Re-fit the artwork into a resized poster, keeping the composition. */
 function relayout() {
   const before = layout;
+  const aspect = state.placement ? activeAspect() : 1;
   const fraction = state.placement && {
     fx: state.placement.cx / before.posterW,
     fy: state.placement.cy / before.posterH,
-    fw: state.placement.w / fitPlacement(before, state.source, state.placement.rot, 'contain').w,
+    fw: state.placement.w / fitPlacement(before, state.source, state.placement.rot, 'contain', aspect).w,
   };
 
   readConfig();
   layout = computeLayout(state.cfg);
 
   if (state.placement && fraction) {
-    const fit = fitPlacement(layout, state.source, state.placement.rot, 'contain');
+    const fit = fitPlacement(layout, state.source, state.placement.rot, 'contain', aspect);
+    const w = fit.w * fraction.fw;
     setPlacement({
       ...state.placement,
       cx: fraction.fx * layout.posterW,
       cy: fraction.fy * layout.posterH,
-      w: fit.w * fraction.fw,
-      h: (fit.w * fraction.fw) / placedAspect(state.source, state.placement.rot),
+      w,
+      h: w / aspect,
     });
   }
   render();
 }
 
+const MIN_SIZE = 5;
+const MAX_SIZE = 40000;
+
 function setPlacement(next) {
-  const aspect = placedAspect(state.source, next.rot);
-  const w = clamp(next.w, 5, 40000);
-  state.placement = { cx: next.cx, cy: next.cy, w, h: w / aspect, rot: ((next.rot % 360) + 360) % 360 };
+  const rot = ((next.rot % 360) + 360) % 360;
+  const w = clamp(next.w, MIN_SIZE, MAX_SIZE);
+  // With the ratio locked, the height always follows the artwork's own ratio.
+  // With the ratio free, the caller owns both dimensions.
+  const h = state.lockAspect
+    ? w / placedAspect(state.source, rot)
+    : clamp(next.h, MIN_SIZE, MAX_SIZE);
+  state.placement = { cx: next.cx, cy: next.cy, w, h, rot };
+}
+
+/**
+ * The ratio that a fit or a scale must keep. With the lock on this is the ratio
+ * of the artwork. With the lock off the box keeps the shape it has now, thus a
+ * fit or a layout change does not undo a deliberate stretch.
+ */
+function activeAspect(rot = state.placement?.rot ?? 0) {
+  if (state.lockAspect || !state.placement) return placedAspect(state.source, rot);
+  return state.placement.w / state.placement.h;
+}
+
+/** How far the box is from the artwork's own ratio. 1 means no stretch. */
+function stretchFactor() {
+  const p = state.placement;
+  return p.w / p.h / placedAspect(state.source, p.rot);
 }
 
 /* ----------------------------------------------------------------- render */
@@ -178,6 +206,7 @@ function render() {
     placement: state.placement,
     layout,
     showGrid: state.showGrid,
+    freeAspect: !state.lockAspect,
   });
   syncReadouts();
 }
@@ -203,18 +232,25 @@ function syncReadouts() {
     if (document.activeElement !== el.artW) el.artW.value = big(p.w);
     if (document.activeElement !== el.artH) el.artH.value = big(p.h);
 
-    const across = p.rot % 180 === 0 ? state.source.width : state.source.height;
-    const dpi = across / (p.w / 25.4);
+    const swapped = p.rot % 180 !== 0;
+    const across = swapped ? state.source.height : state.source.width;
+    const down = swapped ? state.source.width : state.source.height;
+    // A stretched box has a different resolution on each axis. Report the weaker one.
+    const dpi = Math.min(across / (p.w / 25.4), down / (p.h / 25.4));
     const quality = state.source.kind === 'pdf'
       ? 'vector artwork — sharp at any size'
       : `${Math.round(dpi)} dpi effective${dpi < 150 ? ' <span class="warn">(soft in print)</span>' : ''}`;
+    const stretch = stretchFactor();
+    const stretched = Math.abs(stretch - 1) > 0.002
+      ? ` <span class="warn">Stretched ${stretch > 1 ? '+' : '−'}${(Math.abs(stretch - 1) * 100).toFixed(1)}% from the original ratio.</span>`
+      : '';
     el.artReadout.innerHTML =
-      `Artwork <b>${big(p.w)} × ${big(p.h)} ${u.big}</b>${p.rot ? `, rotated ${p.rot}°` : ''}.<br>${quality}`;
+      `Artwork <b>${big(p.w)} × ${big(p.h)} ${u.big}</b>${p.rot ? `, rotated ${p.rot}°` : ''}.<br>${quality}${stretched}`;
     el.stagehint.textContent =
       `${state.source.name} · ${big(p.w)} × ${big(p.h)} ${u.big} on a ${big(layout.posterW)} × ${big(layout.posterH)} ${u.big} poster`;
   } else {
     el.stagehint.textContent = 'No artwork loaded';
-    el.artReadout.textContent = 'Drag on the canvas to move · corner handles resize · scroll to zoom · arrow keys nudge.';
+    el.artReadout.textContent = 'Drag on the canvas to move · handles resize · arrow keys nudge.';
   }
 
   const dpi = +el.dpi.value;
@@ -231,7 +267,7 @@ function syncReadouts() {
 }
 
 function scalePercent() {
-  const fit = fitPlacement(layout, state.source, state.placement.rot, 'contain');
+  const fit = fitPlacement(layout, state.source, state.placement.rot, 'contain', activeAspect());
   return (state.placement.w / fit.w) * 100;
 }
 
@@ -292,11 +328,9 @@ function destRect(view) {
 function hitTest(view, px, py) {
   if (!state.placement) return null;
   const dest = destRect(view);
-  const reach = HANDLE_SIZE;
-  const cs = corners(dest);
-  for (let i = 0; i < cs.length; i++) {
-    if (Math.abs(px - cs[i][0]) <= reach && Math.abs(py - cs[i][1]) <= reach) {
-      return { mode: 'resize', corner: i, anchor: cs[(i + 2) % 4] };
+  for (const handle of handlePoints(dest, !state.lockAspect)) {
+    if (Math.abs(px - handle.x) <= HANDLE_SIZE && Math.abs(py - handle.y) <= HANDLE_SIZE) {
+      return { mode: 'resize', handle };
     }
   }
   if (px >= dest.x && px <= dest.x + dest.w && py >= dest.y && py <= dest.y + dest.h) return { mode: 'move' };
@@ -309,9 +343,7 @@ el.canvas.addEventListener('pointermove', (ev) => {
   if (drag || !state.placement) return;
   const { x, y } = localPoint(ev);
   const hit = hitTest(currentView(), x, y);
-  el.canvas.style.cursor = !hit ? 'default'
-    : hit.mode === 'move' ? 'grab'
-    : hit.corner % 2 === 0 ? 'nwse-resize' : 'nesw-resize';
+  el.canvas.style.cursor = !hit ? 'default' : hit.mode === 'move' ? 'grab' : hit.handle.cursor;
 });
 
 el.canvas.addEventListener('pointerdown', (ev) => {
@@ -338,14 +370,32 @@ el.canvas.addEventListener('pointermove', (ev) => {
       cy: drag.origin.cy + (now.y - drag.start.y),
     });
   } else {
-    // Resize from the opposite corner, locked to the artwork's aspect ratio.
-    const anchor = viewToPoster(drag.view, drag.anchor[0], drag.anchor[1]);
-    const aspect = placedAspect(state.source, drag.origin.rot);
-    const w = Math.max(Math.abs(now.x - anchor.x), Math.abs(now.y - anchor.y) * aspect);
-    const h = w / aspect;
-    const signX = drag.corner === 1 || drag.corner === 2 ? 1 : -1;
-    const signY = drag.corner === 2 || drag.corner === 3 ? 1 : -1;
-    setPlacement({ ...drag.origin, w, h, cx: anchor.x + (signX * w) / 2, cy: anchor.y + (signY * h) / 2 });
+    // Resize away from the anchor, which is the opposite corner or edge.
+    const { handle } = drag;
+    const anchor = viewToPoster(drag.view, handle.anchor[0], handle.anchor[1]);
+    const reachX = Math.abs(now.x - anchor.x);
+    const reachY = Math.abs(now.y - anchor.y);
+    let w;
+    let h;
+
+    if (state.lockAspect) {
+      // Both axes move together, so the corner follows whichever axis reaches further.
+      const aspect = placedAspect(state.source, drag.origin.rot);
+      w = Math.max(reachX, reachY * aspect);
+      h = w / aspect;
+    } else {
+      // An edge handle leaves its other axis exactly as it was.
+      w = handle.ax ? reachX : drag.origin.w;
+      h = handle.ay ? reachY : drag.origin.h;
+    }
+
+    setPlacement({
+      ...drag.origin,
+      w,
+      h,
+      cx: handle.ax ? anchor.x + (handle.sx * w) / 2 : drag.origin.cx,
+      cy: handle.ay ? anchor.y + (handle.sy * h) / 2 : drag.origin.cy,
+    });
   }
   render();
 });
@@ -359,21 +409,6 @@ for (const type of ['pointerup', 'pointercancel']) {
     render();
   });
 }
-
-el.canvas.addEventListener('wheel', (ev) => {
-  if (!state.placement) return;
-  ev.preventDefault();
-  const view = currentView();
-  const { x, y } = localPoint(ev);
-  const cursor = viewToPoster(view, x, y);
-  const factor = Math.exp(-ev.deltaY * 0.0015);
-  const p = state.placement;
-  const w = clamp(p.w * factor, 5, 40000);
-  const k = w / p.w;
-  // Keep the poster point under the cursor pinned while zooming.
-  setPlacement({ ...p, w, cx: cursor.x + (p.cx - cursor.x) * k, cy: cursor.y + (p.cy - cursor.y) * k });
-  render();
-}, { passive: false });
 
 window.addEventListener('keydown', (ev) => {
   if (!state.placement) return;
@@ -504,8 +539,10 @@ el.orientation.addEventListener('click', (ev) => {
   relayout();
 });
 
-el.fit.addEventListener('click', () => withSource(() => setPlacement(fitPlacement(layout, state.source, state.placement.rot, 'contain'))));
-el.fill.addEventListener('click', () => withSource(() => setPlacement(fitPlacement(layout, state.source, state.placement.rot, 'cover'))));
+el.fit.addEventListener('click', () => withSource(() =>
+  setPlacement(fitPlacement(layout, state.source, state.placement.rot, 'contain', activeAspect()))));
+el.fill.addEventListener('click', () => withSource(() =>
+  setPlacement(fitPlacement(layout, state.source, state.placement.rot, 'cover', activeAspect()))));
 el.center.addEventListener('click', () => withSource(() => setPlacement({ ...state.placement, cx: layout.posterW / 2, cy: layout.posterH / 2 })));
 el.rotL.addEventListener('click', () => withSource(() => rotate(-90)));
 el.rotR.addEventListener('click', () => withSource(() => rotate(90)));
@@ -518,8 +555,10 @@ function rotate(delta) {
 }
 
 el.scale.addEventListener('input', () => withSource(() => {
-  const fit = fitPlacement(layout, state.source, state.placement.rot, 'contain');
-  setPlacement({ ...state.placement, w: (fit.w * +el.scale.value) / 100 });
+  const aspect = activeAspect();
+  const fit = fitPlacement(layout, state.source, state.placement.rot, 'contain', aspect);
+  const w = (fit.w * +el.scale.value) / 100;
+  setPlacement({ ...state.placement, w, h: w / aspect });
 }));
 
 el.artW.addEventListener('input', () => withSource(() => {
@@ -528,8 +567,19 @@ el.artW.addEventListener('input', () => withSource(() => {
 }));
 el.artH.addEventListener('input', () => withSource(() => {
   const h = unit().fromBig(+el.artH.value);
-  if (h > 0) setPlacement({ ...state.placement, w: h * placedAspect(state.source, state.placement.rot) });
+  if (h <= 0) return;
+  // Locked, the height drives the width. Free, it stands on its own.
+  setPlacement(state.lockAspect
+    ? { ...state.placement, w: h * placedAspect(state.source, state.placement.rot) }
+    : { ...state.placement, h });
 }));
+
+el.lockAspect.addEventListener('change', () => {
+  state.lockAspect = el.lockAspect.checked;
+  // Locking again restores the artwork's own ratio and removes any stretch.
+  if (state.lockAspect && state.placement) setPlacement({ ...state.placement });
+  render();
+});
 
 function withSource(fn) {
   if (!state.source || !state.placement) return;

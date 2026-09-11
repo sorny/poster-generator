@@ -93,9 +93,13 @@ export function placementRect(placement) {
   };
 }
 
-/** Scale the artwork so it fits inside (contain) or covers (cover) the poster. */
-export function fitPlacement(layout, source, rot, mode) {
-  const aspect = placedAspect(source, rot);
+/**
+ * Scale the artwork so it fits inside (contain) or covers (cover) the poster.
+ * `aspect` defaults to the artwork's own ratio. Pass the ratio of the current
+ * box instead when the user has unlocked the ratio, so that a fit does not
+ * silently undo a deliberate stretch.
+ */
+export function fitPlacement(layout, source, rot, mode, aspect = placedAspect(source, rot)) {
   const posterAspect = layout.posterW / layout.posterH;
   const useWidth = mode === 'cover' ? aspect < posterAspect : aspect > posterAspect;
   const w = useWidth ? layout.posterW : layout.posterH * aspect;

@@ -138,7 +138,7 @@ function halo(ctx, theme, drawPath, color, width = 1.5) {
 }
 
 /** Draw the whole editing surface: artwork, poster, sheet grid, handles. */
-export function drawPreview(canvas, { source, placement, layout, showGrid = true, selected = true }) {
+export function drawPreview(canvas, { source, placement, layout, showGrid = true, selected = true, freeAspect = false }) {
   const ctx = canvas.getContext('2d');
   const w = canvas.clientWidth;
   const h = canvas.clientHeight;
@@ -186,7 +186,7 @@ export function drawPreview(canvas, { source, placement, layout, showGrid = true
     ctx.fillRect(poster.x + poster.w, poster.y, w - poster.x - poster.w, poster.h);
 
     if (showGrid) drawSheetGrid(ctx, theme, layout, px, py, view.scale);
-    if (selected) drawHandles(ctx, theme, dest);
+    if (selected) drawHandles(ctx, theme, dest, freeAspect);
   } else if (showGrid) {
     drawSheetGrid(ctx, theme, layout, px, py, view.scale);
   }
@@ -258,21 +258,47 @@ export function blankTiles(layout, placement) {
 
 export const HANDLE_SIZE = 9;
 
-function drawHandles(ctx, theme, dest) {
-  const s = HANDLE_SIZE;
-  halo(ctx, theme, () => ctx.strokeRect(dest.x, dest.y, dest.w, dest.h), theme.handle, 1.5);
-  for (const [cx, cy] of corners(dest)) {
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(cx - s / 2, cy - s / 2, s, s);
-    halo(ctx, theme, () => ctx.strokeRect(cx - s / 2, cy - s / 2, s, s), theme.handle, 1.5);
+/**
+ * The resize handles of the placed artwork, in canvas pixels.
+ *
+ * The four corners are always there. The four edge midpoints appear only when
+ * `free` is true, because they change one dimension and leave the other one
+ * alone, which has no meaning while the ratio is locked.
+ *
+ * Each handle carries what a drag needs: `ax` and `ay` tell which axes it
+ * resizes, `anchor` is the point that stays still, and `sx`/`sy` give the
+ * direction from that anchor.
+ */
+export function handlePoints(dest, free = false) {
+  const { x, y, w, h } = dest;
+  const x1 = x + w;
+  const y1 = y + h;
+  const mx = x + w / 2;
+  const my = y + h / 2;
+
+  const points = [
+    { id: 'nw', x,      y,      ax: 1, ay: 1, sx: -1, sy: -1, anchor: [x1, y1], cursor: 'nwse-resize' },
+    { id: 'ne', x: x1,  y,      ax: 1, ay: 1, sx:  1, sy: -1, anchor: [x,  y1], cursor: 'nesw-resize' },
+    { id: 'se', x: x1,  y: y1,  ax: 1, ay: 1, sx:  1, sy:  1, anchor: [x,  y],  cursor: 'nwse-resize' },
+    { id: 'sw', x,      y: y1,  ax: 1, ay: 1, sx: -1, sy:  1, anchor: [x1, y],  cursor: 'nesw-resize' },
+  ];
+  if (free) {
+    points.push(
+      { id: 'n', x: mx, y,      ax: 0, ay: 1, sx:  0, sy: -1, anchor: [mx, y1], cursor: 'ns-resize' },
+      { id: 's', x: mx, y: y1,  ax: 0, ay: 1, sx:  0, sy:  1, anchor: [mx, y],  cursor: 'ns-resize' },
+      { id: 'w', x,     y: my,  ax: 1, ay: 0, sx: -1, sy:  0, anchor: [x1, my], cursor: 'ew-resize' },
+      { id: 'e', x: x1, y: my,  ax: 1, ay: 0, sx:  1, sy:  0, anchor: [x,  my], cursor: 'ew-resize' },
+    );
   }
+  return points;
 }
 
-export function corners(dest) {
-  return [
-    [dest.x, dest.y],
-    [dest.x + dest.w, dest.y],
-    [dest.x + dest.w, dest.y + dest.h],
-    [dest.x, dest.y + dest.h],
-  ];
+function drawHandles(ctx, theme, dest, free) {
+  const s = HANDLE_SIZE;
+  halo(ctx, theme, () => ctx.strokeRect(dest.x, dest.y, dest.w, dest.h), theme.handle, 1.5);
+  for (const point of handlePoints(dest, free)) {
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(point.x - s / 2, point.y - s / 2, s, s);
+    halo(ctx, theme, () => ctx.strokeRect(point.x - s / 2, point.y - s / 2, s, s), theme.handle, 1.5);
+  }
 }

@@ -101,15 +101,25 @@ sheet along the seam line and glue it onto its neighbor.
 
 - Drag the artwork on the canvas.
 - Pull a corner handle to change the size.
-- Scroll to zoom toward the pointer.
 - Press the arrow keys to move the artwork. Hold Shift for 10 mm steps.
-- Type an exact width.
+- Type an exact width or height.
 
 Three buttons set the size and the angle:
 
 - `Fit` puts all of the artwork inside the poster.
 - `Fill` covers the poster and cuts off the overflow.
 - `⟲` and `⟳` rotate the artwork in 90° steps.
+
+**Lock aspect ratio.** This control is on by default. The artwork then keeps its
+own proportions. The width and the height always move together.
+
+Remove the lock to change one dimension alone. The box then gets four more
+handles, one at the middle of each edge. A side handle changes one dimension and
+leaves the other one as it is. The width field and the height field also become
+independent.
+
+A stretched image is not the shape of the original. The panel thus shows the
+difference as a percentage. To remove the stretch, set the lock again.
 
 **Print resolution.** The panel shows the effective print resolution. If the app
 stretches a bitmap to less than 150 dpi, the panel gives a warning. The panel also
@@ -171,6 +181,7 @@ sheets, and it parses the exported PDF.
 | `guides` | Grid contrast, measured against white, black, and mid-gray artwork |
 | `theme` | The panel and the canvas change together, and guides keep their contrast in both themes |
 | `units` | Sheet presets, millimeter/inch conversion, and that a unit change never moves the geometry |
+| `placement` | The handles, the ratio lock, and that a locked box can never leave the artwork ratio |
 | `e2e` | Upload, drag, layout change, multi-page PDF, export, then the PDF read back |
 
 ## Layout
