@@ -21,7 +21,9 @@ export async function loadSource(file, onProgress = () => {}) {
   if (IMAGE_TYPES.test(file.type) || /\.(png|jpe?g|webp|gif|bmp|avif)$/i.test(file.name)) {
     return loadImage(file);
   }
-  throw new Error(`Unsupported file type: ${file.type || file.name}`);
+  throw new Error(
+    `Cannot read ${file.name}. Use a PNG, JPEG, WebP, GIF or PDF file.`,
+  );
 }
 
 async function loadImage(file) {

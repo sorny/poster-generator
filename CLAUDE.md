@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 npm start             # serve the app on http://localhost:8173 (PORT overrides the port)
 npm test              # all browser suites, one summary
 npm test units        # one suite: geometry | tiling | guides | theme | units
-                      #            placement | export | e2e  (substring match)
+                      #            placement | export | ux | e2e  (substring match)
 node test/units.test.js   # the same suite, run directly
 npm run vendor        # copy pdf.js and pdf-lib from node_modules into vendor/
 node --check js/app.js    # syntax check; there is no build step and no linter
@@ -174,6 +174,29 @@ grid toggle and the status line live in this bar; they had their own second bar,
 which cost 38 px of canvas for two controls. `test/e2e.test.js` measures that all
 five header items share one center line and that no second bar returns.
 
+**A flex item's `flex-basis` beats its `height` on the main axis.** Under 860px
+the stage is a column flex container. `.canvaswrap` carried `flex: 1`, which sets
+`flex-basis: 0%`, so the `height: 60vh` in the media query never applied and the
+canvas computed to 0px tall. The rule there is `flex: none; height: 60vh`. Any
+explicit size on a flex item needs the basis released first.
+
+**`input[type="number"]` is more specific than a class.** The attribute selector
+scores (0,1,1) and a bare `.num` scores (0,1,0), so the general `width: 100%`
+beat the narrow width and squeezed the slider track to nothing. Number inputs
+that need their own width match as `input[type="number"].num`.
+
+**Buttons need `:focus-visible` named explicitly.** The reset clears the
+user-agent outline, and `button` was missing from the focus rule, so eight
+controls had no keyboard focus state. `test/ux.test.js` tabs through the panel
+with real key events, because `element.focus()` does not match `:focus-visible`
+on a button and would pass a broken page.
+
+**Undo records at the end of a gesture, never during one.** `commit()` pushes a
+copy of the placement onto a bounded stack. A drag streams hundreds of
+intermediate states; recording them would make one drag take hundreds of undos.
+Pointer release, a discrete command, and a pause after a run of arrow keys each
+record one step.
+
 **Rotation uses 90° steps only.** The bounding box of the placed artwork thus
 stays parallel to the axes, which keeps hit tests and resize handles simple. Free
 angles need a rotated-box hit test through all of `app.js`.
@@ -202,6 +225,7 @@ These are the suites:
 - The `units` suite tests the presets and the display layer.
 - The `placement` suite tests the handles and the ratio lock.
 - The `export` suite tests the export option matrix.
+- The `ux` suite guards the fixes from the interface review.
 - The `e2e` suite uploads a file, places it, exports the PDF, then reads the PDF back.
 
 Note: a top-level `const` in `Runtime.evaluate` stays after the call and collides

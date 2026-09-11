@@ -2,7 +2,9 @@
 
 import { PAGE_PRESETS, computeLayout, fitPlacement, placedAspect, placementRect } from './layout.js';
 import { loadSource } from './source.js';
-import { drawPreview, computeView, viewToPoster, handlePoints, blankTiles, refreshTheme, HANDLE_SIZE } from './renderer.js';
+import { drawPreview, computeView, viewToPoster, handlePoints, blankTiles, refreshTheme } from './renderer.js';
+
+const HANDLE_REACH = 12;
 import { buildPosterPdf } from './exporter.js';
 
 const $ = (id) => document.getElementById(id);
@@ -14,10 +16,11 @@ const el = {
   customW: $('customW'), customH: $('customH'), orientation: $('orientation'),
   units: $('units'), customWLabel: $('customWLabel'), customHLabel: $('customHLabel'),
   artWLabel: $('artWLabel'), artHLabel: $('artHLabel'),
-  margin: $('margin'), marginVal: $('marginVal'), overlap: $('overlap'), overlapVal: $('overlapVal'),
+  margin: $('margin'), marginNum: $('marginNum'), marginUnit: $('marginUnit'),
+  overlap: $('overlap'), overlapNum: $('overlapNum'), overlapUnit: $('overlapUnit'),
   posterReadout: $('posterReadout'),
   fit: $('fit'), fill: $('fill'), center: $('center'), rotL: $('rotL'), rotR: $('rotR'),
-  scale: $('scale'), scaleVal: $('scaleVal'), artW: $('artW'), artH: $('artH'), artReadout: $('artReadout'),
+  scale: $('scale'), scaleNum: $('scaleNum'), artW: $('artW'), artH: $('artH'), artReadout: $('artReadout'),
   lockAspect: $('lockAspect'),
   dpi: $('dpi'), format: $('format'), quality: $('quality'), qualityVal: $('qualityVal'),
   qualityField: $('qualityField'), transparentField: $('transparentField'), transparent: $('transparent'),
@@ -26,6 +29,7 @@ const el = {
   progress: $('progress'), bar: $('bar'), progressText: $('progressText'),
   showGrid: $('showGrid'), stagehint: $('stagehint'),
   canvas: $('preview'), canvaswrap: $('canvaswrap'), toast: $('toast'),
+  toastText: $('toastText'), toastClose: $('toastClose'), emptystate: $('emptystate'),
 };
 
 const state = {
@@ -44,6 +48,49 @@ const state = {
 };
 
 let layout = computeLayout(state.cfg);
+
+/**
+ * Undo history for the placement. Direct manipulation without an undo is a trap:
+ * one stray drag destroys a careful composition and the only way back is by eye.
+ * Entries are pushed at the end of a gesture, never during one, so a drag is a
+ * single step rather than a hundred.
+ */
+const history = { past: [], future: [], limit: 50 };
+
+function commit() {
+  if (!state.placement) return;
+  const last = history.past[history.past.length - 1];
+  const now = JSON.stringify(state.placement);
+  if (last === now) return;
+  history.past.push(now);
+  if (history.past.length > history.limit) history.past.shift();
+  history.future.length = 0;
+}
+
+function resetHistory() {
+  history.past.length = 0;
+  history.future.length = 0;
+  commit();
+}
+
+function step(from, to) {
+  if (from.length < 2) return false;
+  to.push(from.pop());
+  state.placement = JSON.parse(from[from.length - 1]);
+  render();
+  return true;
+}
+
+const undo = () => step(history.past, history.future);
+
+function redo() {
+  if (!history.future.length) return false;
+  const entry = history.future.pop();
+  history.past.push(entry);
+  state.placement = JSON.parse(entry);
+  render();
+  return true;
+}
 
 /* ------------------------------------------------------------------ setup */
 
@@ -143,6 +190,7 @@ function readConfig() {
 
 /** Re-fit the artwork into a resized poster, keeping the composition. */
 function relayout() {
+  clearProgress();
   const before = layout;
   const aspect = state.placement ? activeAspect() : 1;
   const fraction = state.placement && {
@@ -200,6 +248,15 @@ function stretchFactor() {
 
 /* ----------------------------------------------------------------- render */
 
+/** Clear export feedback: a bar left at 100% stops being feedback. */
+let progressTimer;
+function clearProgress() {
+  clearTimeout(progressTimer);
+  el.progress.hidden = true;
+  el.bar.style.width = '0%';
+  el.progressText.textContent = '';
+}
+
 function render() {
   drawPreview(el.canvas, {
     source: state.source,
@@ -216,8 +273,10 @@ function syncReadouts() {
   const len = (mm) => `${num(u.toLen(mm), u.lenPlaces)} ${u.len}`;
   const big = (mm) => num(u.toBig(mm), u.bigPlaces);
 
-  el.marginVal.textContent = len(layout.margin);
-  el.overlapVal.textContent = len(layout.overlap);
+  el.marginUnit.textContent = u.len;
+  el.overlapUnit.textContent = u.len;
+  setNum(el.marginNum, u.toLen(layout.margin), u.lenPlaces);
+  setNum(el.overlapNum, u.toLen(layout.overlap), u.lenPlaces);
 
   const sheets = layout.cols * layout.rows;
   el.posterReadout.innerHTML =
@@ -228,7 +287,7 @@ function syncReadouts() {
   if (state.placement) {
     const p = state.placement;
     el.scale.value = clamp(scalePercent(), 5, 400);
-    el.scaleVal.textContent = `${Math.round(scalePercent())}%`;
+    setNum(el.scaleNum, scalePercent(), 0);
     if (document.activeElement !== el.artW) el.artW.value = big(p.w);
     if (document.activeElement !== el.artH) el.artH.value = big(p.h);
 
@@ -263,7 +322,16 @@ function syncReadouts() {
     (mp > 80 ? ' <span class="warn">Large — lower the dpi if your browser runs out of memory.</span>' : '') +
     (blank.length ? `<br><span class="warn">${blank.length} sheet${blank.length === 1 ? '' : 's'} print blank: ${blank.join(', ')}.</span>` : '');
 
-  el.exportBtn.disabled = !state.source || state.busy;
+  const ready = !!state.source;
+  el.exportBtn.disabled = !ready || state.busy;
+  el.exportBtn.textContent = ready
+    ? `Generate poster PDF · ${sheets} sheet${sheets === 1 ? '' : 's'}`
+    : 'Add artwork to export';
+  el.emptystate.hidden = ready;
+  el.canvas.setAttribute('aria-label', ready
+    ? `Poster preview. ${state.source.name}, ${big(state.placement.w)} by ${big(state.placement.h)} ${u.big}, `
+      + `on a ${big(layout.posterW)} by ${big(layout.posterH)} ${u.big} poster of ${sheets} sheets.`
+    : 'Poster preview. No artwork loaded.');
 }
 
 function scalePercent() {
@@ -276,7 +344,7 @@ function scalePercent() {
 async function handleFile(file) {
   if (!file) return;
   try {
-    el.drop.classList.remove('over');
+    setDragging(false);
     hideToast();
     state.source?.dispose?.();
     state.source = null;
@@ -286,6 +354,8 @@ async function handleFile(file) {
     const source = await loadSource(file, (msg) => { el.stagehint.textContent = msg; });
     state.source = source;
     setPlacement(fitPlacement(layout, source, 0, 'contain'));
+    resetHistory();
+    clearProgress();
 
     el.filemeta.hidden = false;
     el.filename.textContent = source.name;
@@ -309,6 +379,8 @@ function clearSource() {
   state.source?.dispose?.();
   state.source = null;
   state.placement = null;
+  resetHistory();
+  clearProgress();
   el.filemeta.hidden = true;
   el.file.value = '';
   render();
@@ -329,7 +401,9 @@ function hitTest(view, px, py) {
   if (!state.placement) return null;
   const dest = destRect(view);
   for (const handle of handlePoints(dest, !state.lockAspect)) {
-    if (Math.abs(px - handle.x) <= HANDLE_SIZE && Math.abs(py - handle.y) <= HANDLE_SIZE) {
+    // Tolerance, not the drawn size: a 9px handle with a 12px reach is a 24px
+    // target, which is the WCAG 2.5.8 minimum, without looking heavy.
+    if (Math.abs(px - handle.x) <= HANDLE_REACH && Math.abs(py - handle.y) <= HANDLE_REACH) {
       return { mode: 'resize', handle };
     }
   }
@@ -406,20 +480,34 @@ for (const type of ['pointerup', 'pointercancel']) {
     drag = null;
     el.canvas.classList.remove('grabbing');
     el.canvas.releasePointerCapture?.(ev.pointerId);
+    commit();
     render();
   });
 }
 
+let nudgeTimer;
+
 window.addEventListener('keydown', (ev) => {
-  if (!state.placement) return;
-  if (/^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement?.tagName)) return;
-  const step = ev.shiftKey ? 10 : 1;
-  const moves = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
+  const typing = /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement?.tagName);
+
+  if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === 'z') {
+    if (typing) return;   // let the field handle its own undo
+    ev.preventDefault();
+    (ev.shiftKey ? redo : undo)();
+    return;
+  }
+
+  if (!state.placement || typing) return;
+  const distance = ev.shiftKey ? 10 : 1;
+  const moves = { ArrowLeft: [-distance, 0], ArrowRight: [distance, 0], ArrowUp: [0, -distance], ArrowDown: [0, distance] };
   const move = moves[ev.key];
   if (!move) return;
   ev.preventDefault();
   setPlacement({ ...state.placement, cx: state.placement.cx + move[0], cy: state.placement.cy + move[1] });
   render();
+  // A run of arrow presses is one undo step, the same as one drag.
+  clearTimeout(nudgeTimer);
+  nudgeTimer = setTimeout(commit, 400);
 });
 
 /* ----------------------------------------------------------------- export */
@@ -431,6 +519,7 @@ async function exportPdf() {
   el.progress.hidden = false;
   el.exportBtn.disabled = true;
 
+  clearTimeout(progressTimer);
   const onProgress = (value, text) => {
     el.bar.style.width = `${Math.round(value * 100)}%`;
     el.progressText.textContent = text;
@@ -452,9 +541,11 @@ async function exportPdf() {
     }, onProgress);
 
     const base = state.source.name.replace(/\.[^.]+$/, '') || 'poster';
-    download(new Blob([bytes], { type: 'application/pdf' }),
-             `${base}-poster-${layout.cols}x${layout.rows}.pdf`);
-    onProgress(1, `Done — ${layout.tiles.length} sheets saved.`);
+    const filename = `${base}-poster-${layout.cols}x${layout.rows}.pdf`;
+    download(new Blob([bytes], { type: 'application/pdf' }), filename);
+    const count = layout.tiles.length;
+    onProgress(1, `Saved ${filename} · ${count} sheet${count === 1 ? '' : 's'}`);
+    progressTimer = setTimeout(clearProgress, 6000);
   } catch (err) {
     console.error(err);
     showToast(err.message || 'Export failed.');
@@ -483,15 +574,22 @@ el.drop.addEventListener('keydown', (ev) => {
 el.file.addEventListener('change', () => handleFile(el.file.files[0]));
 el.clear.addEventListener('click', clearSource);
 
+// A drop anywhere on the page works, so the stage lights up too. Highlighting
+// only the sidebar put the feedback hundreds of pixels from the cursor.
+const setDragging = (on) => {
+  el.drop.classList.toggle('over', on);
+  el.canvaswrap.classList.toggle('over', on);
+};
+
 for (const type of ['dragenter', 'dragover']) {
-  document.addEventListener(type, (ev) => { ev.preventDefault(); el.drop.classList.add('over'); });
+  document.addEventListener(type, (ev) => { ev.preventDefault(); setDragging(true); });
 }
 document.addEventListener('dragleave', (ev) => {
-  if (ev.relatedTarget === null) el.drop.classList.remove('over');
+  if (ev.relatedTarget === null) setDragging(false);
 });
 document.addEventListener('drop', (ev) => {
   ev.preventDefault();
-  el.drop.classList.remove('over');
+  setDragging(false);
   handleFile(ev.dataTransfer?.files?.[0]);
 });
 
@@ -510,6 +608,28 @@ for (const slider of [el.margin, el.overlap]) {
     slider.value = Math.round(+slider.value / grid) * grid;
   });
 }
+
+// Typing a number moves the slider. These are print measurements with exact
+// intended values, so dragging for "12 mm" was never good enough.
+for (const [numInput, slider] of [[el.marginNum, el.margin], [el.overlapNum, el.overlap]]) {
+  numInput.addEventListener('input', () => {
+    const mm = unit().fromLen(+numInput.value);
+    if (!Number.isFinite(mm)) return;
+    slider.value = clamp(mm, +slider.min, +slider.max);
+    relayout();
+  });
+}
+
+el.scaleNum.addEventListener('input', () => withSource(() => {
+  const percent = clamp(+el.scaleNum.value, 5, 400);
+  if (!Number.isFinite(percent)) return;
+  el.scale.value = percent;
+  const aspect = activeAspect();
+  const fit = fitPlacement(layout, state.source, state.placement.rot, 'contain', aspect);
+  const w = (fit.w * percent) / 100;
+  setPlacement({ ...state.placement, w, h: w / aspect });
+  commit();
+}));
 
 for (const input of [el.cols, el.rows, el.preset, el.customW, el.customH, el.margin, el.overlap]) {
   input.addEventListener('input', relayout);
@@ -554,6 +674,7 @@ function rotate(delta) {
   setPlacement({ cx: p.cx, cy: p.cy, w: p.h, h: p.w, rot });
 }
 
+el.scale.addEventListener('change', commit);
 el.scale.addEventListener('input', () => withSource(() => {
   const aspect = activeAspect();
   const fit = fitPlacement(layout, state.source, state.placement.rot, 'contain', aspect);
@@ -561,6 +682,8 @@ el.scale.addEventListener('input', () => withSource(() => {
   setPlacement({ ...state.placement, w, h: w / aspect });
 }));
 
+el.artW.addEventListener('change', commit);
+el.artH.addEventListener('change', commit);
 el.artW.addEventListener('input', () => withSource(() => {
   const w = unit().fromBig(+el.artW.value);
   if (w > 0) setPlacement({ ...state.placement, w });
@@ -572,7 +695,7 @@ el.artH.addEventListener('input', () => withSource(() => {
   setPlacement(state.lockAspect
     ? { ...state.placement, w: h * placedAspect(state.source, state.placement.rot) }
     : { ...state.placement, h });
-}));
+}, { record: false }));
 
 el.lockAspect.addEventListener('change', () => {
   state.lockAspect = el.lockAspect.checked;
@@ -581,9 +704,10 @@ el.lockAspect.addEventListener('change', () => {
   render();
 });
 
-function withSource(fn) {
+function withSource(fn, { record = true } = {}) {
   if (!state.source || !state.placement) return;
   fn();
+  if (record) commit();
   render();
 }
 
@@ -614,17 +738,27 @@ function localPoint(ev) {
 }
 
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+
+/** Write a value into a number input, unless the user is editing that field. */
+function setNum(input, value, places) {
+  if (document.activeElement === input) return;
+  input.value = num(value, places);
+}
 /** Round to at most `places` decimals and drop trailing zeros: 8.50 -> "8.5". */
 const num = (v, places = 1) => String(Math.round(v * 10 ** places) / 10 ** places);
 
 let toastTimer;
 function showToast(message) {
-  el.toast.textContent = message;
+  el.toastText.textContent = message;
   el.toast.hidden = false;
   clearTimeout(toastTimer);
   toastTimer = setTimeout(hideToast, 8000);
 }
-function hideToast() { el.toast.hidden = true; }
+function hideToast() {
+  clearTimeout(toastTimer);
+  el.toast.hidden = true;
+}
+el.toastClose.addEventListener('click', hideToast);
 
 applyUnits();
 readConfig();

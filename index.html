@@ -28,7 +28,7 @@
   <aside class="panel" id="panel">
 
     <section class="group">
-      <h2>1 · Artwork</h2>
+      <h2>Artwork</h2>
       <div class="drop" id="drop" tabindex="0" role="button" aria-label="Choose a file">
         <strong>Drop a PDF or image</strong>
         <span>or click to browse · PNG, JPEG, WebP, GIF, PDF</span>
@@ -46,7 +46,7 @@
     </section>
 
     <section class="group">
-      <h2>2 · Poster size</h2>
+      <h2>Poster size</h2>
       <div class="grid2">
         <label class="field">
           <span>Sheets across</span>
@@ -79,21 +79,27 @@
           <button type="button" data-value="landscape" role="radio" aria-checked="false">Landscape</button>
         </div>
       </div>
-      <div class="grid2">
-        <label class="field">
-          <span>Printer margin <em id="marginVal">10 mm</em></span>
-          <input type="range" id="margin" min="0" max="25.4" step="any" value="10">
-        </label>
-        <label class="field">
-          <span>Glue overlap <em id="overlapVal">0 mm</em></span>
-          <input type="range" id="overlap" min="0" max="50.8" step="any" value="0">
-        </label>
+      <div class="stack">
+        <div class="field">
+          <span>Printer margin <em class="unit" id="marginUnit">mm</em></span>
+          <div class="slider">
+            <input type="range" id="margin" min="0" max="25.4" step="any" value="10" aria-label="Printer margin">
+            <input type="number" id="marginNum" class="num" min="0" max="25.4" step="0.5" value="10" aria-label="Printer margin value">
+          </div>
+        </div>
+        <div class="field">
+          <span>Glue overlap <em class="unit" id="overlapUnit">mm</em></span>
+          <div class="slider">
+            <input type="range" id="overlap" min="0" max="50.8" step="any" value="0" aria-label="Glue overlap">
+            <input type="number" id="overlapNum" class="num" min="0" max="50.8" step="0.5" value="0" aria-label="Glue overlap value">
+          </div>
+        </div>
       </div>
       <p class="readout" id="posterReadout"></p>
     </section>
 
     <section class="group">
-      <h2>3 · Placement</h2>
+      <h2>Placement</h2>
       <div class="buttonrow">
         <button type="button" class="ghost" id="fit">Fit</button>
         <button type="button" class="ghost" id="fill">Fill</button>
@@ -105,10 +111,13 @@
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 0-2.34 5.66"/><path d="M20 6v6h-6"/></svg>
         </button>
       </div>
-      <label class="field">
-        <span>Scale <em id="scaleVal">100%</em></span>
-        <input type="range" id="scale" min="5" max="400" step="0.5" value="100">
-      </label>
+      <div class="field">
+        <span>Scale <em class="unit">%</em></span>
+        <div class="slider">
+          <input type="range" id="scale" min="5" max="400" step="0.5" value="100" aria-label="Scale">
+          <input type="number" id="scaleNum" class="num" min="5" max="400" step="1" value="100" aria-label="Scale percent">
+        </div>
+      </div>
       <label class="toggle"><input type="checkbox" id="lockAspect" checked> Lock aspect ratio</label>
       <div class="grid2">
         <label class="field"><span id="artWLabel">Width (cm)</span><input type="number" id="artW" min="0.1" step="0.1"></label>
@@ -118,7 +127,7 @@
     </section>
 
     <section class="group">
-      <h2>4 · Output</h2>
+      <h2>Output</h2>
       <div class="grid2">
         <label class="field">
           <span>Print resolution</span>
@@ -149,23 +158,37 @@
         <label id="transparentField" hidden><input type="checkbox" id="transparent"> Transparent background</label>
       </div>
       <p class="readout" id="outputReadout"></p>
-      <button type="button" class="primary" id="export" disabled>Generate poster PDF</button>
+    </section>
+
+    <div class="panelfoot">
+      <button type="button" class="primary" id="export" disabled>Add artwork to export</button>
       <div class="progress" id="progress" hidden>
         <div class="bar"><i id="bar"></i></div>
         <span id="progressText"></span>
       </div>
-    </section>
+    </div>
 
   </aside>
 
   <section class="stage">
     <div class="canvaswrap" id="canvaswrap">
-      <canvas id="preview"></canvas>
+      <canvas id="preview" tabindex="0" role="img" aria-label="Poster preview. No artwork loaded."></canvas>
+      <div class="emptystate" id="emptystate">
+        <svg viewBox="0 0 48 48" aria-hidden="true">
+          <rect x="5" y="5" width="38" height="38" rx="3" fill="none" stroke="currentColor" stroke-width="2"/>
+          <path d="M24 6v36M6 24h36" fill="none" stroke="currentColor" stroke-width="1.6" stroke-dasharray="4 3" opacity=".7"/>
+        </svg>
+        <strong>Drop a PDF or image here</strong>
+        <span>PNG, JPEG, WebP, GIF or PDF · nothing leaves this machine</span>
+      </div>
     </div>
   </section>
 </main>
 
-<div class="toast" id="toast" hidden></div>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden>
+  <span id="toastText"></span>
+  <button type="button" id="toastClose" aria-label="Dismiss message">×</button>
+</div>
 
 <script type="module" src="js/app.js"></script>
 </body>

@@ -71,6 +71,9 @@ what you read and type. It never changes the geometry:
 - In inches, the margin and overlap sliders move in sixteenths of an inch. Thus
   `0.25"` and `0.5"` are exact.
 
+Each slider carries a number field beside it, thus you can type an exact value
+instead of dragging for it.
+
 **Printer margin.** This is the border that your printer cannot print. Artwork
 never enters this border.
 
@@ -81,10 +84,12 @@ sheet along the seam line and glue it onto its neighbor.
 
 **Placement.** You can move and size the artwork in these ways:
 
+- Drop a file anywhere on the page, or on the poster itself.
 - Drag the artwork on the canvas.
 - Pull a corner handle to change the size.
 - Press the arrow keys to move the artwork. Hold Shift for 10 mm steps.
 - Type an exact width or height.
+- Press Ctrl+Z or ⌘Z to undo, and Shift with the same keys to redo.
 
 Three buttons set the size and the angle:
 
@@ -167,6 +172,7 @@ browser, because `js/layout.js` is pure.
 | `units` | Sheet presets, millimeter/inch conversion, and that a unit change never moves the geometry |
 | `placement` | The handles, the ratio lock, and that a locked box can never leave the artwork ratio |
 | `export` | The option matrix: page counts, guides, labels, encodings, resolution, and metadata |
+| `ux` | The findings of the interface review: narrow viewports, focus rings, undo, typed values, and export feedback |
 | `e2e` | Upload, drag, layout change, multi-page PDF, export, then the PDF read back |
 
 ## Layout

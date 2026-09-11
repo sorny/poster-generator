@@ -48,8 +48,11 @@ export async function body({ page, check, downloads }) {
 
   await page.run(setValue('margin', '6.35'));
   await sleep(300);
-  check('quarter inch margin reads cleanly',
-    (await page.run(text('marginVal'))) === '0.25 in', await page.run(text('marginVal')));
+  // The margin now shows in a number input you can type into, beside its unit.
+  const marginRead = await page.run(`
+    return document.getElementById('marginNum').value + ' '
+         + document.getElementById('marginUnit').textContent;`);
+  check('quarter inch margin reads cleanly', marginRead === '0.25 in', marginRead);
   check('Letter poster becomes exactly 16 x 31.5 in', /16 × 31\.5 in/.test(await poster()), await poster());
 
   await page.run(setValue('preset', 'custom'));
