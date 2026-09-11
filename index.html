@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Poster Generator</title>
+<link rel="stylesheet" href="css/app.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%235ea8ff'/><g fill='none' stroke='%230e0f14' stroke-width='2'><rect x='7' y='7' width='18' height='18'/><path d='M16 7v18M7 16h18'/></g></svg>">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="mark" aria-hidden="true"></span>
+    <h1>Poster Generator</h1>
+  </div>
+  <p class="tagline">Tile an image or PDF across multiple sheets — everything stays on this machine.</p>
+</header>
+
+<main class="shell">
+  <aside class="panel" id="panel">
+
+    <section class="group">
+      <h2>1 · Artwork</h2>
+      <div class="drop" id="drop" tabindex="0" role="button" aria-label="Choose a file">
+        <strong>Drop a PDF or image</strong>
+        <span>or click to browse · PNG, JPEG, WebP, GIF, PDF</span>
+      </div>
+      <input type="file" id="file" accept="application/pdf,image/*" hidden>
+      <div class="filemeta" id="filemeta" hidden>
+        <div class="filename" id="filename"></div>
+        <div class="filenote" id="filenote"></div>
+        <label class="row" id="pagerow" hidden>
+          <span>PDF page</span>
+          <select id="pdfpage"></select>
+        </label>
+        <button class="ghost small" id="clear" type="button">Remove</button>
+      </div>
+    </section>
+
+    <section class="group">
+      <h2>2 · Poster size</h2>
+      <div class="grid2">
+        <label class="field">
+          <span>Sheets across</span>
+          <input type="number" id="cols" min="1" max="20" step="1" value="2">
+        </label>
+        <label class="field">
+          <span>Sheets down</span>
+          <input type="number" id="rows" min="1" max="20" step="1" value="3">
+        </label>
+      </div>
+      <div class="field">
+        <span>Units</span>
+        <div class="segmented" id="units" role="radiogroup">
+          <button type="button" data-value="mm" class="on" role="radio" aria-checked="true">Millimetres</button>
+          <button type="button" data-value="in" role="radio" aria-checked="false">Inches</button>
+        </div>
+      </div>
+      <label class="field">
+        <span>Sheet size</span>
+        <select id="preset"></select>
+      </label>
+      <div class="grid2" id="customsize" hidden>
+        <label class="field"><span id="customWLabel">Width (mm)</span><input type="number" id="customW" min="20" max="2000" step="1" value="210"></label>
+        <label class="field"><span id="customHLabel">Height (mm)</span><input type="number" id="customH" min="20" max="2000" step="1" value="297"></label>
+      </div>
+      <div class="field">
+        <span>Sheet orientation</span>
+        <div class="segmented" id="orientation" role="radiogroup">
+          <button type="button" data-value="portrait" class="on" role="radio" aria-checked="true">Portrait</button>
+          <button type="button" data-value="landscape" role="radio" aria-checked="false">Landscape</button>
+        </div>
+      </div>
+      <div class="grid2">
+        <label class="field">
+          <span>Printer margin <em id="marginVal">10 mm</em></span>
+          <input type="range" id="margin" min="0" max="25.4" step="any" value="10">
+        </label>
+        <label class="field">
+          <span>Glue overlap <em id="overlapVal">0 mm</em></span>
+          <input type="range" id="overlap" min="0" max="50.8" step="any" value="0">
+        </label>
+      </div>
+      <p class="readout" id="posterReadout"></p>
+    </section>
+
+    <section class="group">
+      <h2>3 · Placement</h2>
+      <div class="buttonrow">
+        <button type="button" class="ghost" id="fit">Fit</button>
+        <button type="button" class="ghost" id="fill">Fill</button>
+        <button type="button" class="ghost" id="center">Center</button>
+        <button type="button" class="ghost icon" id="rotL" title="Rotate 90° left" aria-label="Rotate 90 degrees left">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 1 2.34 5.66"/><path d="M4 6v6h6"/></svg>
+        </button>
+        <button type="button" class="ghost icon" id="rotR" title="Rotate 90° right" aria-label="Rotate 90 degrees right">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 0-2.34 5.66"/><path d="M20 6v6h-6"/></svg>
+        </button>
+      </div>
+      <label class="field">
+        <span>Scale <em id="scaleVal">100%</em></span>
+        <input type="range" id="scale" min="5" max="400" step="0.5" value="100">
+      </label>
+      <div class="grid2">
+        <label class="field"><span id="artWLabel">Width (cm)</span><input type="number" id="artW" min="0.1" step="0.1"></label>
+        <label class="field"><span id="artHLabel">Height (cm)</span><input type="number" id="artH" min="0.1" step="0.1"></label>
+      </div>
+      <p class="readout" id="artReadout">Drag on the canvas to move · corner handles resize · scroll to zoom · arrow keys nudge.</p>
+    </section>
+
+    <section class="group">
+      <h2>4 · Output</h2>
+      <div class="grid2">
+        <label class="field">
+          <span>Print resolution</span>
+          <select id="dpi">
+            <option value="150">150 dpi draft</option>
+            <option value="200">200 dpi</option>
+            <option value="300" selected>300 dpi photo</option>
+            <option value="400">400 dpi</option>
+            <option value="600">600 dpi max</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Encoding</span>
+          <select id="format">
+            <option value="image/jpeg" selected>JPEG small</option>
+            <option value="image/png">PNG lossless</option>
+          </select>
+        </label>
+      </div>
+      <label class="field" id="qualityField">
+        <span>JPEG quality <em id="qualityVal">92%</em></span>
+        <input type="range" id="quality" min="50" max="100" step="1" value="92">
+      </label>
+      <div class="checks">
+        <label><input type="checkbox" id="marks" checked> Cut and seam guides</label>
+        <label><input type="checkbox" id="labels" checked> Sheet labels (A1, A2 …)</label>
+        <label><input type="checkbox" id="assembly" checked> Assembly map page</label>
+        <label id="transparentField" hidden><input type="checkbox" id="transparent"> Transparent background</label>
+      </div>
+      <p class="readout" id="outputReadout"></p>
+      <button type="button" class="primary" id="export" disabled>Generate poster PDF</button>
+      <div class="progress" id="progress" hidden>
+        <div class="bar"><i id="bar"></i></div>
+        <span id="progressText"></span>
+      </div>
+    </section>
+
+  </aside>
+
+  <section class="stage">
+    <div class="stagehead">
+      <label class="toggle"><input type="checkbox" id="showGrid" checked> Show sheet grid</label>
+      <span class="stagehint" id="stagehint">No artwork loaded</span>
+    </div>
+    <div class="canvaswrap" id="canvaswrap">
+      <canvas id="preview"></canvas>
+    </div>
+  </section>
+</main>
+
+<div class="toast" id="toast" hidden></div>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

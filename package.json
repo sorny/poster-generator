@@ -1,0 +1,37 @@
+{
+  "name": "poster-generator",
+  "version": "1.0.0",
+  "description": "Tile an image or PDF across many printable sheets and export a poster PDF. Runs entirely in the browser, fully offline.",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "homepage": "https://sorny.github.io/poster-generator/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sorny/poster-generator.git"
+  },
+  "bugs": {
+    "url": "https://github.com/sorny/poster-generator/issues"
+  },
+  "keywords": [
+    "poster",
+    "pdf",
+    "printing",
+    "tiling",
+    "offline",
+    "client-side",
+    "canvas",
+    "pdf-lib",
+    "pdfjs",
+    "no-build"
+  ],
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test/run.js",
+    "vendor": "node scripts/vendor.js"
+  },
+  "dependencies": {
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^6.3.289"
+  }
+}
