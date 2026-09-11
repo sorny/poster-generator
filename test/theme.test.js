@@ -1,12 +1,12 @@
-// The colour scheme follows the OS via prefers-color-scheme. The panel and the
+// The color scheme follows the OS via prefers-color-scheme. The panel and the
 // preview canvas must both switch, and the guides must keep their contrast in
-// either scheme — they sit on artwork whose colour has nothing to do with the theme.
+// either scheme — they sit on artwork whose color has nothing to do with the theme.
 
 import { join } from 'node:path';
 import { main, sleep } from './harness.js';
 import { posterImage, upload, setValue } from './fixtures.js';
 
-export const name = 'colour scheme';
+export const name = 'color scheme';
 
 const emulate = (page, scheme) => page.send('Emulation.setEmulatedMedia', {
   features: [{ name: 'prefers-color-scheme', value: scheme }],

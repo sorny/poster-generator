@@ -15,7 +15,7 @@ export async function body({ page, check }) {
     const cfg = { preset: 'a4', orientation: 'portrait', cols: 2, rows: 2,
                   margin: 10, overlap: 0, customW: 210, customH: 297 };
 
-    // --- four colour quadrants sized to the poster's exact aspect ratio
+    // --- four color quadrants sized to the poster's exact aspect ratio
     const layout = computeLayout(cfg);
     out.poster = [layout.posterW, layout.posterH];
     const c = document.createElement('canvas');
@@ -50,7 +50,7 @@ export async function body({ page, check }) {
                         && near(out.tiles[2].mid, [0,0,255]) && near(out.tiles[3].mid, [255,255,0]);
     out.marginsWhite = out.tiles.every((t) => t.marginWhite);
 
-    // --- a glue overlap must print the same artwork on both neighbours
+    // --- a glue overlap must print the same artwork on both neighbors
     const oLayout = computeLayout({ ...cfg, overlap: 20 });
     const grad = document.createElement('canvas');
     grad.width = 1200; grad.height = Math.round(1200 * oLayout.posterH / oLayout.posterW);

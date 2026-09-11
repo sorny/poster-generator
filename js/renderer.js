@@ -2,7 +2,7 @@
 
 import { mmToPx, placementRect } from './layout.js';
 
-/** Map poster millimetres to canvas pixels for the preview. */
+/** Map poster millimeters to canvas pixels for the preview. */
 export function computeView(canvasW, canvasH, layout, pad = 28) {
   const scale = Math.min((canvasW - 2 * pad) / layout.posterW, (canvasH - 2 * pad) / layout.posterH);
   return {
@@ -14,7 +14,7 @@ export function computeView(canvasW, canvasH, layout, pad = 28) {
   };
 }
 
-/** Convert a canvas point back to poster millimetres. */
+/** Convert a canvas point back to poster millimeters. */
 export function viewToPoster(view, px, py) {
   return { x: (px - view.ox) / view.scale, y: (py - view.oy) / view.scale };
 }
@@ -75,7 +75,7 @@ export async function renderTile(source, placement, layout, tile, dpi, { transpa
 
 /**
  * The canvas palette lives in css/app.css as custom properties, so the preview
- * follows the OS colour scheme through exactly the same variables as the panel.
+ * follows the OS color scheme through exactly the same variables as the panel.
  * Looked up once and cached; call refreshTheme() when the scheme changes.
  */
 let cachedTheme = null;
@@ -107,9 +107,9 @@ function palette(element) {
 
 /**
  * Stroke the current path twice with interleaved dashes: dark in the gaps of
- * light. A single translucent colour cannot stay visible over both a white PDF
+ * light. A single translucent color cannot stay visible over both a white PDF
  * page and a dark photo — this can. Both passes are theme-independent for that
- * reason; only the chrome around the poster follows the colour scheme.
+ * reason; only the chrome around the poster follows the color scheme.
  */
 function dualDash(ctx, theme, lightColor, dash = 5, width = 1) {
   ctx.lineWidth = width;
@@ -198,7 +198,7 @@ export function drawPreview(canvas, { source, placement, layout, showGrid = true
 }
 
 function drawSheetGrid(ctx, theme, layout, px, py, scale) {
-  // Glue flaps: the strips two neighbouring sheets both print.
+  // Glue flaps: the strips two neighboring sheets both print.
   if (layout.overlap > 0.05) {
     ctx.fillStyle = theme.overlap;
     for (let c = 1; c < layout.cols; c++) {

@@ -5,161 +5,178 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-npm start             # serve the app on http://localhost:8173 (PORT env overrides)
-npm test              # every browser suite, one summary
-npm test units        # one suite: tiling | guides | units | e2e (substring match)
-node test/units.test.js   # same suite, run directly
-npm run vendor        # re-copy pdf.js / pdf-lib from node_modules into vendor/
-node --check js/app.js    # syntax check; there is no build step or linter
+npm start             # serve the app on http://localhost:8173 (PORT overrides the port)
+npm test              # all browser suites, one summary
+npm test units        # one suite: tiling | guides | theme | units | e2e (substring match)
+node test/units.test.js   # the same suite, run directly
+npm run vendor        # copy pdf.js and pdf-lib from node_modules into vendor/
+node --check js/app.js    # syntax check; there is no build step and no linter
 ```
 
-`npm install` is **optional**. pdf.js and pdf-lib are committed under `vendor/`,
-and the tests parse exported PDFs with that same vendored build, so a clean
-checkout runs and tests without touching npm. Install only to refresh `vendor/`.
+`npm install` is **optional**. The repository includes pdf.js and pdf-lib in
+`vendor/`, and the tests parse exported PDFs with that same vendored build. A
+clean checkout thus runs and tests without npm. Use `npm install` only to get
+new versions for `vendor/`.
 
-The app is plain ES modules served as-is — no bundler, no transpiler, no build.
-Editing a file and reloading the page is the whole dev loop. A server is required
-only because browsers refuse ES modules over `file://`.
+The app is plain ES modules, served as they are. There is no bundler, no
+transpiler, and no build. The full development loop is to edit a file and load the
+page again. A server is necessary only because browsers refuse ES modules over
+`file://`.
 
-Tests need a Chrome on the machine. `test/cdp.js` finds Playwright's cached
-"Chrome for Testing", then a normal Chrome install; `CHROME_PATH` overrides.
+The tests need a Chrome on the machine. `test/cdp.js` looks for the cached
+"Chrome for Testing" of Playwright, then for a usual Chrome installation. The
+`CHROME_PATH` variable overrides this search.
 
 ## Architecture
 
-Six modules, each with one job. The dependency direction is strictly
-`app → renderer/exporter → source/layout`; nothing imports `app.js`.
+There are six modules, and each module has one task. The dependency direction is
+always `app → renderer/exporter → source/layout`. No module imports `app.js`.
 
-| File | Responsibility |
+| File | Task |
 |---|---|
-| `js/layout.js` | Page presets, poster geometry, fit maths. Pure functions, no DOM. |
-| `js/source.js` | Wraps an uploaded image or PDF page in one interface. |
-| `js/renderer.js` | Draws the interactive preview and rasterises one sheet. |
-| `js/exporter.js` | Assembles the PDF: sheets, guides, labels, assembly map. |
-| `js/app.js` | State, pointer interaction, DOM wiring. The only module touching the panel. |
-| `server.js` | Dependency-free static server, bound to `127.0.0.1`. |
+| `js/layout.js` | Page presets, poster geometry, and fit math. Pure functions, no DOM. |
+| `js/source.js` | Puts an uploaded image or PDF page behind one interface. |
+| `js/renderer.js` | Draws the interactive preview, and rasterizes one sheet. |
+| `js/exporter.js` | Builds the PDF: sheets, guides, labels, and the assembly map. |
+| `js/app.js` | State, pointer interaction, and DOM wiring. The only module that touches the panel. |
+| `server.js` | Static server with no dependencies, bound to `127.0.0.1`. |
 
-### Millimetres are the only unit
+### Millimeters are the only unit
 
-Every stored dimension is mm. Pixels appear only inside a render call
-(`mmToPx(mm, dpi)`), points only when writing the PDF (`mmToPt`). The mm/inch
-toggle in the UI is a **display layer in `app.js` only** — `UNITS` converts what
-the user reads and types, and `state.cfg` stays metric. A unit switch must never
-change geometry; `test/units.test.js` asserts a mm → in → mm round trip is exact.
+Each stored dimension is in millimeters. Pixels occur only in a render call
+(`mmToPx(mm, dpi)`). The app uses points only to write the PDF (`mmToPt`).
+
+The millimeter/inch control is a **display layer in `app.js` only**. `UNITS`
+converts what the user reads and types, and `state.cfg` stays metric. A unit
+change must never change the geometry. `test/units.test.js` makes sure that a
+millimeter → inch → millimeter conversion is exact.
 
 ### The tiling model
 
-`computeLayout(cfg)` turns a page setup into tiles. Each sheet prints
-`printW = pageW − 2 × margin` of artwork, and neighbours duplicate `overlap` mm,
-so the poster advances by `advX = printW − overlap` per column:
+`computeLayout(cfg)` makes tiles from a page setup. Each sheet prints
+`printW = pageW − 2 × margin` of artwork. Adjacent sheets duplicate `overlap` mm.
+Thus the poster moves forward by `advX = printW − overlap` for each column:
 
 ```
 posterW = cols × advX + overlap
 ```
 
-Tile `n` starts at poster coordinate `n × advX`. Overlap `0` means trim the
-margins and butt the sheets together; a positive overlap gives a glue flap.
+Tile `n` starts at poster coordinate `n × advX`. An overlap of `0` means that the
+user cuts off the margins and puts the sheets edge to edge. A larger overlap gives
+a glue flap.
 
-### One sheet at a time, never a whole-poster canvas
+### One sheet at a time, never a full-poster canvas
 
-`renderTile()` allocates a canvas the size of a single **page**, clips to the
-printable box, and translates the artwork by that tile's poster offset. A 6 × 4
-poster at 600 dpi therefore costs the same memory as one sheet. Do not "simplify"
-this by compositing the full poster and slicing it — that allocates gigabytes.
+`renderTile()` makes a canvas with the size of one **page**. It clips the canvas
+to the printable box. Then it moves the artwork by the poster offset of that tile.
+A 6 × 4 poster at 600 dpi thus uses the same memory as one sheet.
 
-### Colour scheme
+CAUTION: Do not replace this method with one large canvas that the code divides
+into sheets. One canvas for the full poster needs gigabytes of memory.
 
-`css/app.css` defines the whole palette as custom properties on `:root` (dark),
-overridden in a single `@media (prefers-color-scheme: light)` block. No rule is
-duplicated between themes — only variables change, plus `color-scheme` so native
-controls follow.
+### Color scheme
 
-The preview canvas reads those same variables: `renderer.js` resolves the
-`--canvas-*` properties through `getComputedStyle` and caches them. `app.js`
-listens on `matchMedia('(prefers-color-scheme: light)')` and calls
-`refreshTheme()` + `render()` when it fires. Add a canvas colour by adding a
-`--canvas-*` property and reading it in `palette()`; never hardcode one.
+`css/app.css` holds the full palette as custom properties on `:root` (dark). One
+`@media (prefers-color-scheme: light)` block overrides them. No rule is duplicated
+between the two themes. Only the variables change, and `color-scheme` makes the
+native controls follow.
 
-Guide colours (`--canvas-guide-dark`, `--canvas-guide-light`, `--canvas-seam`)
-are intentionally **not** themed — see the dual-pass rule below.
+The preview canvas reads the same variables. `renderer.js` gets the `--canvas-*`
+properties with `getComputedStyle` and caches them. `app.js` listens on
+`matchMedia('(prefers-color-scheme: light)')`. When that listener fires, it calls
+`refreshTheme()` and then `render()`.
+
+To add a canvas color, add a `--canvas-*` property and read it in `palette()`.
+Never write a color into the JavaScript.
+
+The guide colors (`--canvas-guide-dark`, `--canvas-guide-light`, `--canvas-seam`)
+do **not** follow the theme. The reason is in "Guides are drawn two times".
 
 ### The source interface
 
-`loadSource(file)` returns `{ kind, width, height, preview, pageCount, drawInto,
-selectPage, dispose }`. The contract that matters is `drawInto(ctx, w, h)`: paint
-the artwork into the rect `(0,0)–(w,h)` of the **current transform**, at whatever
-resolution that transform implies.
+`loadSource(file)` gives `{ kind, width, height, preview, pageCount, drawInto,
+selectPage, dispose }`. The important part of the contract is
+`drawInto(ctx, w, h)`: it draws the artwork into the rectangle `(0,0)–(w,h)` of
+the **current transform**, at the resolution that this transform gives.
 
-- Images call `drawImage` with the source bitmap.
-- PDFs re-run the pdf.js vector renderer per sheet at that sheet's scale, so
-  output stays sharp at any poster size instead of resampling one raster.
+- For images, `drawInto` calls `drawImage` with the source bitmap.
+- For PDFs, the pdf.js vector renderer runs again for each sheet, at the scale of
+  that sheet. The output stays sharp at all poster sizes, and the code does not
+  resample one raster.
 
-pdf.js multiplies onto the existing context transform rather than replacing it,
-which is what makes the same call work for both. `preview` is a cheap bitmap used
-only by the interactive canvas.
+pdf.js multiplies onto the transform that the context already has. It does not
+replace that transform. This is why the same call works for both kinds of source.
+`preview` is a cheap bitmap, and only the interactive canvas uses it.
 
-Teardown detail: `destroy()` lives on the pdf.js *loading task*, not on the
-document proxy (which only has `cleanup()`).
+Note: `destroy()` belongs to the pdf.js loading task, not to the document proxy.
+The document proxy has only `cleanup()`.
 
 ## Conventions that exist for a reason
 
-These were all bugs once. Changing them reintroduces the bug.
+Each item here was a bug one time. If you change the convention, the bug returns.
 
-**Never `await` between a canvas transform and its `restore()`.** The await
-resolves in a microtask after the calling function returns, leaking the transform
-into later draws. `renderer.js` uses the synchronous `applyPlacementTransform()`
-helper, with save/restore owned by the caller, precisely so a transform and its
-restore cannot be split by an await.
+**Never put an `await` between a canvas transform and its `restore()`.** The
+`await` resolves in a microtask after the calling function returns. The transform
+then leaks into later draw calls. `renderer.js` uses the synchronous
+`applyPlacementTransform()` helper, and the caller owns the save and the restore.
+This makes it impossible for an `await` to divide a transform from its restore.
 
-**Guides are drawn twice, dark then light.** One translucent colour cannot stay
-visible on both a white PDF page and a dark photo. `dualDash()` strokes the path
-with interleaved dashes (dark at offset 0, light at offset `dash`); `halo()` puts
-a wider contrasting stroke under a solid one. This is why guide colours do not
-follow the colour scheme: the pair must contain one light and one dark stroke in
-both themes, because artwork colour is independent of the OS setting. Only
-`--canvas-halo` and `--canvas-poster-edge` swap, and they swap *together* so the
-pair is preserved. `test/guides.test.js` and `test/theme.test.js` measure the
-resulting contrast against white, black and mid-grey artwork in both schemes.
+**Guides are drawn two times, dark and then light.** One translucent color cannot
+stay visible on a white PDF page and on a dark photo. `dualDash()` strokes the
+path with interleaved dashes: dark at offset 0, and light at offset `dash`.
+`halo()` puts a wider stroke of the opposite tone under a solid stroke.
+
+This is why the guide colors do not follow the color scheme. The pair must hold
+one light stroke and one dark stroke in both themes. The color of the artwork does
+not depend on the OS setting. Only `--canvas-halo` and
+`--canvas-poster-edge` swap, and they swap together, thus the pair stays complete.
+`test/guides.test.js` and `test/theme.test.js` measure this contrast against
+white, black, and mid-gray artwork, in both themes.
 
 **`[hidden]` needs `!important` in `css/app.css`.** Layout rules set
-`display: flex/grid` on the same elements and would otherwise beat the user-agent
-rule, leaving "hidden" panels visible.
+`display: flex` or `display: grid` on the same elements. Without `!important`,
+those rules win against the user-agent rule, and hidden panels stay visible.
 
-**The margin and overlap sliders use `step="any"` and quantise in JS.** Changing
-a range input's `step` attribute makes the browser re-sanitise its *value* to the
-new grid — which silently resized the poster when the unit toggle changed the
-step. `sliderGrid()` returns the grid; the input handler rounds to it.
+**The margin slider and the overlap slider use `step="any"`, and the code
+quantizes their values.** When the `step` attribute of a range input changes, the
+browser sanitizes the *value* to the new grid. When the unit control changed the
+step, the poster changed size with no warning. `sliderGrid()` gives the grid, and the
+input handler rounds to it.
 
-**Rotation is 90° steps only.** The placed artwork's bounding box therefore stays
-axis-aligned, which is what keeps hit-testing and resize handles trivial.
-Arbitrary angles would need a rotated-bbox hit test throughout `app.js`.
+**Rotation uses 90° steps only.** The bounding box of the placed artwork thus
+stays parallel to the axes, which keeps hit tests and resize handles simple. Free
+angles need a rotated-box hit test through all of `app.js`.
 
 ## Tests
 
-No test framework. `test/cdp.js` drives headless Chrome over the DevTools
-Protocol with Node's built-in `WebSocket`, so the suite has zero dependencies and
-exercises the real app in a real browser: it samples pixels out of rendered
-sheets and parses the exported PDF.
+There is no test framework. `test/cdp.js` operates a headless Chrome over the
+DevTools Protocol with the WebSocket client that Node includes. The suite
+thus has no dependencies, and it tests the real app in a real browser. It
+samples pixels from the rendered sheets, and it parses the exported PDF.
 
-`test/harness.js` boots `server.js` on a free port per suite and exposes
-`check(label, ok, detail)` — assertions record rather than throw, so one failure
-does not hide the rest. `test/fixtures.js` builds artwork inside the page, so
-there are no binary fixtures on disk.
+`test/harness.js` starts `server.js` on a free port for each suite. It gives
+`check(label, ok, detail)`. An assertion records a result and does not throw, thus
+one failure does not hide the other results. `test/fixtures.js` builds the artwork
+inside the page, thus there are no binary fixtures on disk.
 
-Suites: `tiling` (pixel-level correctness of the sheet maths), `guides` (contrast
-measurement), `theme` (colour scheme, driven with `Emulation.setEmulatedMedia`),
-`units` (presets and the display layer), `e2e` (upload → place → export → read the
-PDF back).
+These are the suites:
 
-One browser gotcha: top-level `const` in `Runtime.evaluate` persists across calls
-and collides on the next one. Always use `page.run()` / `page.runAsync()`, which
-wrap the snippet in its own function scope.
+- The `tiling` suite tests the sheet math at pixel level.
+- The `guides` suite measures the contrast of the guides.
+- The `theme` suite tests the color scheme with `Emulation.setEmulatedMedia`.
+- The `units` suite tests the presets and the display layer.
+- The `e2e` suite uploads a file, places it, exports the PDF, then reads the PDF back.
+
+Note: a top-level `const` in `Runtime.evaluate` stays after the call and collides
+on the next call. Always use `page.run()` or `page.runAsync()`. These helpers put
+the code in its own function scope.
 
 ## Deployment
 
-`.github/workflows/pages.yml` copies `index.html`, `css/`, `js/` and `vendor/`
-into `_site` and publishes to GitHub Pages on every push to `main`. There is no
-build, so the deployed site is the source. All asset paths are relative, which is
-what lets it work from a `/poster-generator/` subpath.
+`.github/workflows/pages.yml` copies `index.html`, `css/`, `js/`, and `vendor/`
+into `_site`, and publishes to GitHub Pages at each push to `main`. There is no
+build step, thus the published site is the source. All asset paths are relative,
+which lets the site work from the `/poster-generator/` subpath.
 
-`.github/workflows/ci.yml` syntax-checks every module and runs the browser suite
-against the runner's preinstalled Chrome.
+`.github/workflows/ci.yml` does a syntax check of each module, and runs the
+browser suite against the Chrome of the runner.

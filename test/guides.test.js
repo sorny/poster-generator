@@ -1,4 +1,4 @@
-// Guides are drawn over artwork of unknown colour. A single translucent colour
+// Guides are drawn over artwork of unknown color. A single translucent color
 // cannot stay visible on both a white PDF page and a dark photo, so each guide
 // is a dark pass plus a light pass. This measures that it actually works.
 

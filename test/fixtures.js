@@ -13,7 +13,7 @@ export const posterImage = (name = 'artwork.png', w = 1600, h = 1000) => `
   const blob = await new Promise((r) => c.toBlob(r, 'image/png'));
   return new File([blob], '${name}', { type: 'image/png' });`;
 
-/** A multi-page vector PDF, one flat colour per page. */
+/** A multi-page vector PDF, one flat color per page. */
 export const multiPagePdf = (name = 'booklet.pdf') => `
   const { PDFDocument, rgb } = await import('/vendor/pdf-lib.esm.min.js');
   const doc = await PDFDocument.create();
@@ -24,7 +24,7 @@ export const multiPagePdf = (name = 'booklet.pdf') => `
   const bytes = await doc.save();
   return new File([bytes], '${name}', { type: 'application/pdf' });`;
 
-/** A white document page — the case where naive guide colours disappear. */
+/** A white document page — the case where naive guide colors disappear. */
 export const whiteDocumentPdf = (name = 'report.pdf') => `
   const { PDFDocument, rgb, StandardFonts } = await import('/vendor/pdf-lib.esm.min.js');
   const doc = await PDFDocument.create();

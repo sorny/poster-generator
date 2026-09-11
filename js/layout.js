@@ -1,4 +1,4 @@
-// Poster geometry. Every dimension in this module is millimetres unless the
+// Poster geometry. Every dimension in this module is millimeters unless the
 // name says otherwise. Conversions to pixels happen only at render time.
 
 export const MM_PER_INCH = 25.4;

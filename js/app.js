@@ -46,7 +46,7 @@ let layout = computeLayout(state.cfg);
 /* ------------------------------------------------------------------ setup */
 
 /**
- * Display units. Geometry is always stored in millimetres; these only convert
+ * Display units. Geometry is always stored in millimeters; these only convert
  * what the user reads and types. `len` is a sheet/margin dimension, `big` is a
  * finished poster or artwork dimension — metric shows those in cm, which has no
  * imperial equivalent, so inches serve both roles.
@@ -117,9 +117,9 @@ function applyUnits() {
 }
 
 /**
- * Step size for the margin and overlap sliders, in millimetres: half a
- * millimetre, or a sixteenth of an inch so imperial users land on 1/4" and 1/2"
- * exactly. The sliders carry step="any" and are quantised here instead, because
+ * Step size for the margin and overlap sliders, in millimeters: half a
+ * millimeter, or a sixteenth of an inch so imperial users land on 1/4" and 1/2"
+ * exactly. The sliders carry step="any" and are quantized here instead, because
  * changing a range input's step attribute makes the browser re-sanitise its
  * value — which would silently resize the poster on a display-only unit switch.
  */
@@ -223,7 +223,7 @@ function syncReadouts() {
   const mp = (tw * th) / 1e6;
   const blank = state.placement ? blankTiles(layout, state.placement) : [];
   el.outputReadout.innerHTML =
-    `Each sheet rasterises to <b>${tw} × ${th} px</b> (${mp.toFixed(1)} MP).` +
+    `Each sheet rasterizes to <b>${tw} × ${th} px</b> (${mp.toFixed(1)} MP).` +
     (mp > 80 ? ' <span class="warn">Large — lower the dpi if your browser runs out of memory.</span>' : '') +
     (blank.length ? `<br><span class="warn">${blank.length} sheet${blank.length === 1 ? '' : 's'} print blank: ${blank.join(', ')}.</span>` : '');
 

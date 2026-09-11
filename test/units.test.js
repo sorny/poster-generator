@@ -1,4 +1,4 @@
-// Sheet presets and the millimetre/inch display layer. The invariant under test
+// Sheet presets and the millimeter/inch display layer. The invariant under test
 // is that switching units changes only what is displayed, never the geometry.
 
 import { join } from 'node:path';
@@ -39,7 +39,7 @@ export async function body({ page, check, downloads }) {
     /Letter — 8\.5 × 11 in/.test(usMenu) && /Tabloid \/ Ledger — 11 × 17 in/.test(usMenu)
       && /Super B \/ A3\+ — 13 × 19 in/.test(usMenu), usMenu.slice(0, 160));
 
-  // Sliders carry step="any" and are quantised in JS; changing the step
+  // Sliders carry step="any" and are quantized in JS; changing the step
   // attribute would make the browser re-sanitise the value and resize the poster.
   const snapped = await page.run(`
     const m = document.getElementById('margin'); m.value = '6.9'; m.dispatchEvent(new Event('input'));

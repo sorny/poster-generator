@@ -24,8 +24,8 @@
   --toast-text: #ffd7d7;
   --radius: 10px;
 
-  /* Read by js/renderer.js when it paints the preview canvas. Guide colours are
-     deliberately NOT themed: they sit on top of artwork of unknown colour and
+  /* Read by js/renderer.js when it paints the preview canvas. Guide colors are
+     deliberately NOT themed: they sit on top of artwork of unknown color and
      are drawn as a dark pass plus a light pass, which only works if one of each
      is present in both themes. Only the chrome around the poster follows the OS. */
   --canvas-workspace: #15161c;

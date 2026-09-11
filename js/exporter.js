@@ -77,7 +77,7 @@ function drawMarks(page, layout, tile) {
     }
   }
 
-  // Seam lines: the inner edge of each glue flap shared with a neighbour.
+  // Seam lines: the inner edge of each glue flap shared with a neighbor.
   if (layout.overlap > 0.05) {
     const seam = { dashArray: [6, 3], thickness: 0.6, color: SEAM };
     if (tile.hasRight) {
