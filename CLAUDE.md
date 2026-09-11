@@ -66,6 +66,22 @@ printable box, and translates the artwork by that tile's poster offset. A 6 × 4
 poster at 600 dpi therefore costs the same memory as one sheet. Do not "simplify"
 this by compositing the full poster and slicing it — that allocates gigabytes.
 
+### Colour scheme
+
+`css/app.css` defines the whole palette as custom properties on `:root` (dark),
+overridden in a single `@media (prefers-color-scheme: light)` block. No rule is
+duplicated between themes — only variables change, plus `color-scheme` so native
+controls follow.
+
+The preview canvas reads those same variables: `renderer.js` resolves the
+`--canvas-*` properties through `getComputedStyle` and caches them. `app.js`
+listens on `matchMedia('(prefers-color-scheme: light)')` and calls
+`refreshTheme()` + `render()` when it fires. Add a canvas colour by adding a
+`--canvas-*` property and reading it in `palette()`; never hardcode one.
+
+Guide colours (`--canvas-guide-dark`, `--canvas-guide-light`, `--canvas-seam`)
+are intentionally **not** themed — see the dual-pass rule below.
+
 ### The source interface
 
 `loadSource(file)` returns `{ kind, width, height, preview, pageCount, drawInto,
@@ -97,8 +113,12 @@ restore cannot be split by an await.
 **Guides are drawn twice, dark then light.** One translucent colour cannot stay
 visible on both a white PDF page and a dark photo. `dualDash()` strokes the path
 with interleaved dashes (dark at offset 0, light at offset `dash`); `halo()` puts
-a wider dark stroke under a solid one. `test/guides.test.js` measures the
-resulting contrast against white, black and mid-grey artwork.
+a wider contrasting stroke under a solid one. This is why guide colours do not
+follow the colour scheme: the pair must contain one light and one dark stroke in
+both themes, because artwork colour is independent of the OS setting. Only
+`--canvas-halo` and `--canvas-poster-edge` swap, and they swap *together* so the
+pair is preserved. `test/guides.test.js` and `test/theme.test.js` measure the
+resulting contrast against white, black and mid-grey artwork in both schemes.
 
 **`[hidden]` needs `!important` in `css/app.css`.** Layout rules set
 `display: flex/grid` on the same elements and would otherwise beat the user-agent
@@ -126,8 +146,9 @@ does not hide the rest. `test/fixtures.js` builds artwork inside the page, so
 there are no binary fixtures on disk.
 
 Suites: `tiling` (pixel-level correctness of the sheet maths), `guides` (contrast
-measurement), `units` (presets and the display layer), `e2e` (upload → place →
-export → read the PDF back).
+measurement), `theme` (colour scheme, driven with `Emulation.setEmulatedMedia`),
+`units` (presets and the display layer), `e2e` (upload → place → export → read the
+PDF back).
 
 One browser gotcha: top-level `const` in `Runtime.evaluate` persists across calls
 and collides on the next one. Always use `page.run()` / `page.runAsync()`, which

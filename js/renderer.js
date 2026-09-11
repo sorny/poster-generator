@@ -73,31 +73,49 @@ export async function renderTile(source, placement, layout, tile, dpi, { transpa
   return canvas;
 }
 
-const THEME = {
-  workspace: '#15161c',
-  outside: 'rgba(14, 15, 20, 0.66)',
-  posterEdge: '#f2f3f7',
-  // Guides sit on top of artwork we know nothing about, so every one of them is
-  // drawn as a dark pass plus a light pass. Whichever half matches the artwork
-  // disappears; the other half carries the line. See dualDash / halo below.
-  guideDark: 'rgba(10, 12, 18, 0.8)',
-  guideLight: 'rgba(255, 255, 255, 0.96)',
-  seamLight: 'rgb(125, 193, 255)',
-  overlap: 'rgba(94, 168, 255, 0.18)',
-  handle: '#5ea8ff',
-  empty: '#2a2c36',
-};
+/**
+ * The canvas palette lives in css/app.css as custom properties, so the preview
+ * follows the OS colour scheme through exactly the same variables as the panel.
+ * Looked up once and cached; call refreshTheme() when the scheme changes.
+ */
+let cachedTheme = null;
+
+export function refreshTheme() {
+  cachedTheme = null;
+}
+
+function palette(element) {
+  if (cachedTheme) return cachedTheme;
+  const style = getComputedStyle(element);
+  const read = (name, fallback) => style.getPropertyValue(name).trim() || fallback;
+  cachedTheme = {
+    workspace: read('--canvas-workspace', '#15161c'),
+    outside: read('--canvas-outside', 'rgba(14, 15, 20, 0.66)'),
+    empty: read('--canvas-empty', '#2a2c36'),
+    posterEdge: read('--canvas-poster-edge', '#f2f3f7'),
+    halo: read('--canvas-halo', 'rgba(10, 12, 18, 0.8)'),
+    guideDark: read('--canvas-guide-dark', 'rgba(10, 12, 18, 0.8)'),
+    guideLight: read('--canvas-guide-light', 'rgba(255, 255, 255, 0.96)'),
+    seam: read('--canvas-seam', 'rgb(125, 193, 255)'),
+    overlap: read('--canvas-overlap', 'rgba(94, 168, 255, 0.18)'),
+    handle: read('--canvas-handle', '#5ea8ff'),
+    chip: read('--canvas-chip', 'rgba(10, 12, 18, 0.78)'),
+    chipText: read('--canvas-chip-text', 'rgba(255, 255, 255, 0.92)'),
+  };
+  return cachedTheme;
+}
 
 /**
  * Stroke the current path twice with interleaved dashes: dark in the gaps of
  * light. A single translucent colour cannot stay visible over both a white PDF
- * page and a dark photo — this can.
+ * page and a dark photo — this can. Both passes are theme-independent for that
+ * reason; only the chrome around the poster follows the colour scheme.
  */
-function dualDash(ctx, lightColor, dash = 5, width = 1) {
+function dualDash(ctx, theme, lightColor, dash = 5, width = 1) {
   ctx.lineWidth = width;
   ctx.setLineDash([dash, dash]);
   ctx.lineDashOffset = 0;
-  ctx.strokeStyle = THEME.guideDark;
+  ctx.strokeStyle = theme.guideDark;
   ctx.stroke();
   ctx.lineDashOffset = dash;
   ctx.strokeStyle = lightColor;
@@ -106,9 +124,12 @@ function dualDash(ctx, lightColor, dash = 5, width = 1) {
   ctx.lineDashOffset = 0;
 }
 
-/** Solid line with a dark halo underneath, for the same reason as dualDash. */
-function halo(ctx, drawPath, color, width = 1.5) {
-  ctx.strokeStyle = THEME.guideDark;
+/**
+ * Solid line over a wider halo. The halo is light in the light theme and dark in
+ * the dark theme, so the pair always contains one of each.
+ */
+function halo(ctx, theme, drawPath, color, width = 1.5) {
+  ctx.strokeStyle = theme.halo;
   ctx.lineWidth = width + 2;
   drawPath();
   ctx.strokeStyle = color;
@@ -126,9 +147,10 @@ export function drawPreview(canvas, { source, placement, layout, showGrid = true
     canvas.width = Math.round(w * dpr);
     canvas.height = Math.round(h * dpr);
   }
+  const theme = palette(canvas);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, w, h);
-  ctx.fillStyle = THEME.workspace;
+  ctx.fillStyle = theme.workspace;
   ctx.fillRect(0, 0, w, h);
 
   const view = computeView(w, h, layout);
@@ -141,7 +163,7 @@ export function drawPreview(canvas, { source, placement, layout, showGrid = true
   };
 
   // Paper.
-  ctx.fillStyle = source ? '#ffffff' : THEME.empty;
+  ctx.fillStyle = source ? '#ffffff' : theme.empty;
   ctx.fillRect(poster.x, poster.y, poster.w, poster.h);
 
   if (source && placement) {
@@ -157,28 +179,28 @@ export function drawPreview(canvas, { source, placement, layout, showGrid = true
     ctx.restore();
 
     // Everything outside the poster is only a placement aid.
-    ctx.fillStyle = THEME.outside;
+    ctx.fillStyle = theme.outside;
     ctx.fillRect(0, 0, w, poster.y);
     ctx.fillRect(0, poster.y + poster.h, w, h - poster.y - poster.h);
     ctx.fillRect(0, poster.y, poster.x, poster.h);
     ctx.fillRect(poster.x + poster.w, poster.y, w - poster.x - poster.w, poster.h);
 
-    if (showGrid) drawSheetGrid(ctx, layout, px, py, view.scale);
-    if (selected) drawHandles(ctx, dest);
+    if (showGrid) drawSheetGrid(ctx, theme, layout, px, py, view.scale);
+    if (selected) drawHandles(ctx, theme, dest);
   } else if (showGrid) {
-    drawSheetGrid(ctx, layout, px, py, view.scale);
+    drawSheetGrid(ctx, theme, layout, px, py, view.scale);
   }
 
-  halo(ctx, () => ctx.strokeRect(poster.x - 0.75, poster.y - 0.75, poster.w + 1.5, poster.h + 1.5),
-       THEME.posterEdge, 1.5);
+  halo(ctx, theme, () => ctx.strokeRect(poster.x - 0.75, poster.y - 0.75, poster.w + 1.5, poster.h + 1.5),
+       theme.posterEdge, 1.5);
 
   return { view, poster };
 }
 
-function drawSheetGrid(ctx, layout, px, py, scale) {
+function drawSheetGrid(ctx, theme, layout, px, py, scale) {
   // Glue flaps: the strips two neighbouring sheets both print.
   if (layout.overlap > 0.05) {
-    ctx.fillStyle = THEME.overlap;
+    ctx.fillStyle = theme.overlap;
     for (let c = 1; c < layout.cols; c++) {
       ctx.fillRect(px(c * layout.advX), py(0), layout.overlap * scale, layout.posterH * scale);
     }
@@ -202,7 +224,7 @@ function drawSheetGrid(ctx, layout, px, py, scale) {
       ctx.lineTo(px(layout.posterW), y);
     }
   }
-  dualDash(ctx, layout.overlap > 0.05 ? THEME.seamLight : THEME.guideLight);
+  dualDash(ctx, theme, layout.overlap > 0.05 ? theme.seam : theme.guideLight);
 
   // Sheet labels, when there is room for them. They sit on a dark chip so they
   // stay readable over pale artwork as well as over the empty poster.
@@ -214,11 +236,11 @@ function drawSheetGrid(ctx, layout, px, py, scale) {
       const x = px(tile.x0) + 5;
       const y = py(tile.y0) + 5;
       const w = ctx.measureText(tile.label).width;
-      ctx.fillStyle = 'rgba(10, 12, 18, 0.78)';
+      ctx.fillStyle = theme.chip;
       ctx.beginPath();
       ctx.roundRect(x, y, w + 10, 16, 4);
       ctx.fill();
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+      ctx.fillStyle = theme.chipText;
       ctx.fillText(tile.label, x + 5, y + 3);
     }
   }
@@ -236,13 +258,13 @@ export function blankTiles(layout, placement) {
 
 export const HANDLE_SIZE = 9;
 
-function drawHandles(ctx, dest) {
+function drawHandles(ctx, theme, dest) {
   const s = HANDLE_SIZE;
-  halo(ctx, () => ctx.strokeRect(dest.x, dest.y, dest.w, dest.h), THEME.handle, 1.5);
+  halo(ctx, theme, () => ctx.strokeRect(dest.x, dest.y, dest.w, dest.h), theme.handle, 1.5);
   for (const [cx, cy] of corners(dest)) {
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(cx - s / 2, cy - s / 2, s, s);
-    halo(ctx, () => ctx.strokeRect(cx - s / 2, cy - s / 2, s, s), THEME.handle, 1.5);
+    halo(ctx, theme, () => ctx.strokeRect(cx - s / 2, cy - s / 2, s, s), theme.handle, 1.5);
   }
 }
 

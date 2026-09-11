@@ -6,7 +6,11 @@ network calls, no telemetry. The page works with Wi-Fi switched off.
 
 **[Try it →](https://sorny.github.io/poster-generator/)**
 
-![Poster Generator](docs/screenshot.png)
+| Dark | Light |
+|---|---|
+| ![Poster Generator, dark theme](docs/screenshot-dark.png) | ![Poster Generator, light theme](docs/screenshot-light.png) |
+
+The theme follows your operating system automatically.
 
 ---
 
@@ -32,6 +36,7 @@ Four follow-up prompts refined it afterwards, each one a single line:
 | 2 | *"should we also support us letter sizes used for printing?"* | US sheet presets and a millimetre/inch unit system |
 | 3 | *"write a claude.md file so we can pick up work at any time"* | `CLAUDE.md`, and the test suite moved into the repo |
 | 4 | *"now lets commit everything to a git repo…"* | Licence, CI, Pages, this README |
+| 5 | *"also add a light theme, make it based on the os preference if thats possible?"* | `prefers-color-scheme` palette shared by the panel and the canvas |
 
 The interesting part is not that it works — it is that the model found three of
 its own bugs while testing, and pushed back once. Prompt 2 asked whether US
@@ -90,6 +95,12 @@ The panel reports the effective print resolution and warns when a bitmap is bein
 stretched below 150 dpi, so you find out before you print. It also names any
 sheets that would come out blank.
 
+**Theme** — light and dark, chosen from your OS setting via `prefers-color-scheme`.
+The preview canvas reads the same CSS custom properties as the panel, so both
+switch together. The guides drawn over your artwork deliberately do *not* follow
+the theme: they are always one dark pass plus one light pass, because the artwork's
+colour has nothing to do with your OS setting.
+
 **Output** — pick 150 to 600 dpi and JPEG or PNG. The exported PDF has one page
 per sheet in reading order, and optionally:
 
@@ -131,6 +142,7 @@ back out of rendered sheets and parsing the exported PDF.
 |---|---|
 | `tiling` | Every sheet carries its own region of the artwork, margins stay white, glue overlaps match on both neighbours, PDF vector path and rotation |
 | `guides` | Grid contrast measured against white, black and mid-grey artwork |
+| `theme` | Panel and canvas invert together, and guides keep contrast in both schemes |
 | `units` | Sheet presets, mm/inch conversion, and that a unit switch never moves geometry |
 | `e2e` | Upload, drag, relayout, multi-page PDF, export, then the PDF read back |
 

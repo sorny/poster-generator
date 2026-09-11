@@ -4,7 +4,7 @@
 
 import { suite } from './harness.js';
 
-const SUITES = ['tiling', 'guides', 'units', 'e2e'];
+const SUITES = ['tiling', 'guides', 'theme', 'units', 'e2e'];
 
 const filter = process.argv[2];
 const selected = filter ? SUITES.filter((s) => s.includes(filter)) : SUITES;

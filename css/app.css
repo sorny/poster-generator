@@ -1,14 +1,80 @@
+/* Dark is the base; the light palette below takes over when the OS asks for it.
+   Only the variables change — no rule is duplicated between the two themes. */
 :root {
+  color-scheme: dark;
+
   --bg: #0e0f14;
   --panel: #16181f;
   --panel-2: #1c1f28;
   --line: #272b36;
+  --line-strong: #3a4050;
+  --hover: #232733;
   --text: #e8eaf0;
   --muted: #9198a8;
   --accent: #5ea8ff;
+  --accent-hover: #7ab8ff;
   --accent-ink: #08101c;
+  --disabled-bg: #2a2f3a;
+  --disabled-text: #5d6474;
+  --drop-hover: #1b2432;
+  --warn: #ffc46b;
   --danger: #ff6b6b;
+  --toast-bg: #2a1d1d;
+  --toast-border: #ff6b6b;
+  --toast-text: #ffd7d7;
   --radius: 10px;
+
+  /* Read by js/renderer.js when it paints the preview canvas. Guide colours are
+     deliberately NOT themed: they sit on top of artwork of unknown colour and
+     are drawn as a dark pass plus a light pass, which only works if one of each
+     is present in both themes. Only the chrome around the poster follows the OS. */
+  --canvas-workspace: #15161c;
+  --canvas-outside: rgba(14, 15, 20, 0.66);
+  --canvas-empty: #2a2c36;
+  --canvas-poster-edge: #f2f3f7;
+  --canvas-halo: rgba(10, 12, 18, 0.8);
+  --canvas-guide-dark: rgba(10, 12, 18, 0.8);
+  --canvas-guide-light: rgba(255, 255, 255, 0.96);
+  --canvas-seam: rgb(125, 193, 255);
+  --canvas-overlap: rgba(94, 168, 255, 0.18);
+  --canvas-handle: #5ea8ff;
+  --canvas-chip: rgba(10, 12, 18, 0.78);
+  --canvas-chip-text: rgba(255, 255, 255, 0.92);
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light;
+
+    --bg: #eceef3;
+    --panel: #ffffff;
+    --panel-2: #f3f5f9;
+    --line: #dde1e9;
+    --line-strong: #b6bdca;
+    --hover: #e9ecf2;
+    --text: #171a21;
+    --muted: #5b6373;
+    --accent: #1f6fd0;
+    --accent-hover: #1a5fb4;
+    --accent-ink: #ffffff;
+    --disabled-bg: #e3e6ec;
+    --disabled-text: #98a0ae;
+    --drop-hover: #eaf1fb;
+    --warn: #8a5800;
+    --danger: #c0392b;
+    --toast-bg: #fdecea;
+    --toast-border: #c0392b;
+    --toast-text: #7a231b;
+
+    /* The poster edge and its halo swap roles so the pair still contains one
+       light and one dark stroke, whatever the artwork underneath looks like. */
+    --canvas-workspace: #dcdfe7;
+    --canvas-outside: rgba(238, 240, 245, 0.72);
+    --canvas-empty: #c7cbd5;
+    --canvas-poster-edge: #2c3340;
+    --canvas-halo: rgba(255, 255, 255, 0.92);
+    --canvas-handle: #1f6fd0;
+  }
 }
 
 * { box-sizing: border-box; }
@@ -151,7 +217,7 @@ button {
   padding: 7px 10px;
   font-size: 12.5px;
 }
-.ghost:hover { border-color: #3a4050; background: #232733; }
+.ghost:hover { border-color: var(--line-strong); background: var(--hover); }
 .ghost.small { align-self: flex-start; padding: 4px 9px; font-size: 12px; color: var(--muted); }
 
 .buttonrow { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -194,13 +260,13 @@ button {
   font-weight: 650;
   font-size: 13.5px;
 }
-.primary:hover:not(:disabled) { background: #7ab8ff; }
-.primary:disabled { background: #2a2f3a; color: #5d6474; cursor: not-allowed; }
+.primary:hover:not(:disabled) { background: var(--accent-hover); }
+.primary:disabled { background: var(--disabled-bg); color: var(--disabled-text); cursor: not-allowed; }
 
 /* ---------- drop zone ---------- */
 
 .drop {
-  border: 1.5px dashed #3a4050;
+  border: 1.5px dashed var(--line-strong);
   border-radius: var(--radius);
   padding: 22px 14px;
   text-align: center;
@@ -212,7 +278,7 @@ button {
 }
 .drop strong { font-size: 13px; font-weight: 600; }
 .drop span { font-size: 11.5px; color: var(--muted); }
-.drop:hover, .drop.over { border-color: var(--accent); background: #1b2432; }
+.drop:hover, .drop.over { border-color: var(--accent); background: var(--drop-hover); }
 
 .filemeta { display: flex; flex-direction: column; gap: 8px; }
 .filename { font-size: 13px; font-weight: 600; word-break: break-all; }
@@ -226,7 +292,7 @@ button {
   font-variant-numeric: tabular-nums;
 }
 .readout b { color: var(--text); font-weight: 600; }
-.readout .warn { color: #ffc46b; }
+.readout .warn { color: var(--warn); }
 
 /* ---------- stage ---------- */
 
@@ -259,9 +325,9 @@ button {
   bottom: 20px;
   left: 50%;
   transform: translateX(-50%);
-  background: #2a1d1d;
-  border: 1px solid var(--danger);
-  color: #ffd7d7;
+  background: var(--toast-bg);
+  border: 1px solid var(--toast-border);
+  color: var(--toast-text);
   padding: 10px 16px;
   border-radius: 8px;
   font-size: 13px;

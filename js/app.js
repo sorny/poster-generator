@@ -2,7 +2,7 @@
 
 import { PAGE_PRESETS, computeLayout, fitPlacement, placedAspect, placementRect } from './layout.js';
 import { loadSource } from './source.js';
-import { drawPreview, computeView, viewToPoster, corners, blankTiles, HANDLE_SIZE } from './renderer.js';
+import { drawPreview, computeView, viewToPoster, corners, blankTiles, refreshTheme, HANDLE_SIZE } from './renderer.js';
 import { buildPosterPdf } from './exporter.js';
 
 const $ = (id) => document.getElementById(id);
@@ -548,6 +548,13 @@ el.format.addEventListener('change', () => {
 el.exportBtn.addEventListener('click', exportPdf);
 
 new ResizeObserver(render).observe(el.canvaswrap);
+
+// The canvas palette is read from CSS custom properties and cached, so it has to
+// be re-read when the OS flips between light and dark.
+window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
+  refreshTheme();
+  render();
+});
 
 /* ---------------------------------------------------------------- helpers */
 
