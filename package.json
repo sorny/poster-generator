@@ -1,6 +1,6 @@
 {
   "name": "poster-generator",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Tile an image or PDF across many printable sheets and export a poster PDF. Runs entirely in the browser, fully offline.",
   "license": "MIT",
   "private": true,
