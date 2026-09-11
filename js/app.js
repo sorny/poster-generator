@@ -263,6 +263,9 @@ function render() {
     placement: state.placement,
     layout,
     showGrid: state.showGrid,
+    // Blank-sheet hatching is a sheet-level annotation, so it follows the same
+    // toggle. Unchecking the grid gives a clean look at the artwork.
+    markBlank: state.showGrid,
     freeAspect: !state.lockAspect,
   });
   syncReadouts();

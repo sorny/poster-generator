@@ -101,6 +101,8 @@ function palette(element) {
     handle: read('--canvas-handle', '#5ea8ff'),
     chip: read('--canvas-chip', 'rgba(10, 12, 18, 0.78)'),
     chipText: read('--canvas-chip-text', 'rgba(255, 255, 255, 0.92)'),
+    blankWash: read('--canvas-blank-wash', 'rgba(20, 22, 30, 0.45)'),
+    blankHatch: read('--canvas-blank-hatch', 'rgba(255, 196, 107, 0.35)'),
   };
   return cachedTheme;
 }
@@ -138,7 +140,7 @@ function halo(ctx, theme, drawPath, color, width = 1.5) {
 }
 
 /** Draw the whole editing surface: artwork, poster, sheet grid, handles. */
-export function drawPreview(canvas, { source, placement, layout, showGrid = true, selected = true, freeAspect = false }) {
+export function drawPreview(canvas, { source, placement, layout, showGrid = true, selected = true, freeAspect = false, markBlank = true }) {
   const ctx = canvas.getContext('2d');
   const w = canvas.clientWidth;
   const h = canvas.clientHeight;
@@ -185,6 +187,7 @@ export function drawPreview(canvas, { source, placement, layout, showGrid = true
     ctx.fillRect(0, poster.y, poster.x, poster.h);
     ctx.fillRect(poster.x + poster.w, poster.y, w - poster.x - poster.w, poster.h);
 
+    if (markBlank) drawBlankSheets(ctx, theme, layout, placement, px, py, view.scale);
     if (showGrid) drawSheetGrid(ctx, theme, layout, px, py, view.scale);
     if (selected) drawHandles(ctx, theme, dest, freeAspect);
   } else if (showGrid) {
@@ -243,6 +246,43 @@ function drawSheetGrid(ctx, theme, layout, px, py, scale) {
       ctx.fillStyle = theme.chipText;
       ctx.fillText(tile.label, x + 5, y + 3);
     }
+  }
+}
+
+/**
+ * Hatch the sheets the artwork never reaches. The panel names them in the export
+ * summary, but that is three sections away from the scale control that causes
+ * them, and often below the fold. This puts the warning under the drag.
+ */
+function drawBlankSheets(ctx, theme, layout, placement, px, py, scale) {
+  const blanks = new Set(blankTiles(layout, placement));
+  if (!blanks.size || blanks.size === layout.tiles.length) return;
+
+  for (const tile of layout.tiles) {
+    if (!blanks.has(tile.label)) continue;
+    const x = px(tile.x0);
+    const y = py(tile.y0);
+    const w = layout.printW * scale;
+    const h = layout.printH * scale;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x, y, w, h);
+    ctx.clip();
+    ctx.fillStyle = theme.blankWash;
+    ctx.fillRect(x, y, w, h);
+
+    // Diagonal hatching reads as "no artwork here" at any zoom, and survives
+    // both themes because it is drawn over the wash, not over the artwork.
+    ctx.strokeStyle = theme.blankHatch;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let offset = -h; offset < w; offset += 9) {
+      ctx.moveTo(x + offset, y + h);
+      ctx.lineTo(x + offset + h, y);
+    }
+    ctx.stroke();
+    ctx.restore();
   }
 }
 

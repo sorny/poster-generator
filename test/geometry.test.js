@@ -129,6 +129,21 @@ export async function body({ check }) {
 
   // --- placementRect is the box the renderer and the blank-sheet test both use
   const rect = placementRect({ cx: 100, cy: 50, w: 40, h: 20 });
+  // Guards the harness itself: a debug port derived by arithmetic from an
+  // ephemeral port silently passed 65535 and broke every browser suite at once.
+  const { createServer } = await import('node:net');
+  const grab = () => new Promise((res) => {
+    const probe = createServer();
+    probe.listen(0, '127.0.0.1', () => {
+      const { port } = probe.address();
+      probe.close(() => res(port));
+    });
+  });
+  const ports = await Promise.all([grab(), grab(), grab()]);
+  check('test harness ports are valid and distinct',
+    new Set(ports).size === 3 && ports.every((p) => p > 0 && p <= 65535),
+    ports.join(', '));
+
   check('placementRect centres the box on cx and cy',
     near(rect.x, 80) && near(rect.y, 40) && near(rect.w, 40) && near(rect.h, 20),
     JSON.stringify(rect));

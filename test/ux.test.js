@@ -159,6 +159,88 @@ export async function body({ page, check }) {
 
   // The rejected .txt above logs deliberately, so only unexpected errors count.
   const unexpected = page.errors().filter((e) => !/Cannot read notes\.txt/.test(e.text));
+  // --- M5: blank sheets are shown where the user causes them, not only in a
+  // list three sections away and below the fold.
+  await page.run(setValue('cols', 3));
+  await page.run(setValue('rows', 2));
+  await sleep(300);
+  await page.run(`document.getElementById('center').click();`);
+  await page.run(setValue('scale', '22'));
+  await sleep(400);
+
+  const marked = await page.runAsync(`
+    const { computeLayout, placementRect } = await import('/js/layout.js');
+    const { computeView, blankTiles } = await import('/js/renderer.js');
+    const g = (id) => document.getElementById(id);
+    const layout = computeLayout({
+      preset: g('preset').value,
+      orientation: g('orientation').querySelector('.on').dataset.value,
+      cols: +g('cols').value, rows: +g('rows').value,
+      margin: +g('margin').value, overlap: +g('overlap').value,
+      customW: +g('customW').value, customH: +g('customH').value });
+    const k = g('artWLabel').textContent.includes('in') ? 25.4 : 10;
+    const placement = { cx: layout.posterW / 2, cy: layout.posterH / 2,
+                        w: parseFloat(g('artW').value) * k, h: parseFloat(g('artH').value) * k, rot: 0 };
+    const blanks = blankTiles(layout, placement);
+    const canvas = g('preview');
+    const view = computeView(canvas.clientWidth, canvas.clientHeight, layout);
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const ctx = canvas.getContext('2d');
+    // Sample the middle of a blank sheet and of a covered one.
+    const sample = (tile) => {
+      const x = view.ox + (tile.x0 + layout.printW / 2) * view.scale;
+      const y = view.oy + (tile.y0 + layout.printH / 2) * view.scale;
+      const d = ctx.getImageData(Math.round(x * dpr), Math.round(y * dpr), 24, 24).data;
+      let min = 255, max = 0;
+      for (let i = 0; i < d.length; i += 4) {
+        const l = 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2];
+        min = Math.min(min, l); max = Math.max(max, l);
+      }
+      return { spread: Math.round(max - min) };
+    };
+    const blankTile = layout.tiles.find((t) => blanks.includes(t.label));
+    const liveTile = layout.tiles.find((t) => !blanks.includes(t.label));
+    return JSON.stringify({ blanks, blank: blankTile && sample(blankTile), live: liveTile && sample(liveTile) });`);
+
+  const m = JSON.parse(marked);
+  check('small artwork leaves some sheets blank', m.blanks.length > 0 && m.blanks.length < 6,
+    m.blanks.join(', '));
+  check('blank sheets are hatched on the canvas', m.blank && m.blank.spread > 12,
+    `blank spread ${m.blank?.spread}, covered spread ${m.live?.spread}`);
+
+  check('turning off the sheet grid clears the hatching too',
+    await page.runAsync(`
+      const g = document.getElementById('showGrid');
+      g.checked = false; g.dispatchEvent(new Event('change'));
+      await new Promise((r) => setTimeout(r, 200));
+      const { computeLayout } = await import('/js/layout.js');
+      const { computeView } = await import('/js/renderer.js');
+      const el = (id) => document.getElementById(id);
+      const layout = computeLayout({
+        preset: el('preset').value,
+        orientation: el('orientation').querySelector('.on').dataset.value,
+        cols: +el('cols').value, rows: +el('rows').value,
+        margin: +el('margin').value, overlap: +el('overlap').value,
+        customW: +el('customW').value, customH: +el('customH').value });
+      const canvas = el('preview');
+      const view = computeView(canvas.clientWidth, canvas.clientHeight, layout);
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const ctx = canvas.getContext('2d');
+      const t = layout.tiles[0];
+      const x = view.ox + (t.x0 + layout.printW / 2) * view.scale;
+      const y = view.oy + (t.y0 + layout.printH / 2) * view.scale;
+      const d = ctx.getImageData(Math.round(x * dpr), Math.round(y * dpr), 24, 24).data;
+      let min = 255, max = 0;
+      for (let i = 0; i < d.length; i += 4) {
+        const l = 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2];
+        min = Math.min(min, l); max = Math.max(max, l);
+      }
+      g.checked = true; g.dispatchEvent(new Event('change'));
+      return max - min < 6;`));
+
+  await page.run(setValue('scale', '100'));
+  await sleep(400);
+
   check('no unexpected page errors', unexpected.length === 0,
     unexpected.map((e) => e.text).join(' | ').slice(0, 300));
 }

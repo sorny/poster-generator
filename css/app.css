@@ -40,6 +40,8 @@
   --canvas-handle: #5ea8ff;
   --canvas-chip: rgba(10, 12, 18, 0.78);
   --canvas-chip-text: rgba(255, 255, 255, 0.92);
+  --canvas-blank-wash: rgba(14, 15, 20, 0.55);
+  --canvas-blank-hatch: rgba(255, 196, 107, 0.32);
 }
 
 @media (prefers-color-scheme: light) {
@@ -74,6 +76,8 @@
     --canvas-poster-edge: #2c3340;
     --canvas-halo: rgba(255, 255, 255, 0.92);
     --canvas-handle: #1f6fd0;
+    --canvas-blank-wash: rgba(236, 238, 243, 0.72);
+    --canvas-blank-hatch: rgba(150, 96, 0, 0.3);
   }
 }
 

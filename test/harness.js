@@ -38,7 +38,10 @@ async function waitForServer(port) {
  * a result rather than throwing, so one bad assertion does not hide the rest.
  */
 export async function suite(name, body) {
-  const port = await freePort();
+  // Two independent ports. Deriving the debug port as `port + 1000` looked fine
+  // until the OS handed out an ephemeral port above 64535, where the sum passes
+  // 65535, Chrome refuses to listen and every suite fails at once.
+  const [port, debugPort] = [await freePort(), await freePort()];
   const server = spawn(process.execPath, ['server.js'], {
     cwd: ROOT, stdio: 'ignore', env: { ...process.env, PORT: String(port) },
   });
@@ -53,7 +56,7 @@ export async function suite(name, body) {
   let page;
   try {
     await waitForServer(port);
-    page = await launch(`http://127.0.0.1:${port}`, { downloadPath: downloads, port: port + 1000 });
+    page = await launch(`http://127.0.0.1:${port}`, { downloadPath: downloads, port: debugPort });
     await sleep(2200); // module graph + first render
     await body({ page, check, downloads, artifacts, port });
   } catch (err) {

@@ -232,6 +232,10 @@ Note: a top-level `const` in `Runtime.evaluate` stays after the call and collide
 on the next call. Always use `page.run()` or `page.runAsync()`. These helpers put
 the code in its own function scope.
 
+Note: allocate each port with `freePort()`. Deriving one port from another by
+arithmetic broke every browser suite at once when the OS started handing out
+ephemeral ports above 64535 and the sum passed 65535.
+
 Note: headless Chrome writes a download one time for each file name, and it drops
 a later download that carries a name it already wrote. A suite thus cannot export
 more than one PDF through the Export button. The `export` suite calls
