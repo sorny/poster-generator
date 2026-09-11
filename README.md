@@ -1,7 +1,12 @@
 # Poster Generator
 
+[![CI](https://github.com/sorny/poster-generator/actions/workflows/ci.yml/badge.svg)](https://github.com/sorny/poster-generator/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/sorny/poster-generator)](https://github.com/sorny/poster-generator/releases)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 Poster Generator makes a large poster from one image or one PDF page. It divides
-the poster across many printable sheets.
+the poster across many printable sheets, and it exports one PDF with one page for
+each sheet.
 
 Everything runs in your browser on your own machine. There are no uploads, no
 network calls, and no telemetry. When Wi-Fi is off, the page still works.
@@ -14,38 +19,14 @@ network calls, and no telemetry. When Wi-Fi is off, the page still works.
 
 The theme follows your operating system.
 
----
+## Contents
 
-## Vibe coded
-
-[Claude Code](https://claude.com/claude-code) built this repository from one seed
-prompt. Nobody wrote a file by hand. This is the prompt, word for word:
-
-> Lets write a website where i can upload a PDF or any image so I can generate a
-> PDF for printing as a poster? The website should run completly local, I want to
-> be able to configure how wide the "poster should be" in terms of pages, if
-> landspace or portrait, and i want to be able to move and place the uploaded
-> image around on the "poster area". go
-
-The tiling math, the interactive canvas, the PDF exporter, the test suite, and
-this README all came from that one sentence.
-
-Five more prompts refined the result. Each prompt was one line:
-
-| # | Prompt | What changed |
-|---|--------|--------------|
-| 1 | *"the grid overlay should always be visible, even when the PDF has a white background"* | Guides became one dark pass and one light pass, thus they stay visible on all artwork |
-| 2 | *"should we also support us letter sizes used for printing?"* | US sheet presets and a millimeter/inch unit system |
-| 3 | *"write a claude.md file so we can pick up work at any time"* | `CLAUDE.md`, and the test suite moved into the repository |
-| 4 | *"now lets commit everything to a git repo…"* | License, CI, Pages, and this README |
-| 5 | *"also add a light theme, make it based on the os preference if thats possible?"* | A `prefers-color-scheme` palette shared by the panel and the canvas |
-
-The result works, but two other things are more interesting. The model found
-three of its own bugs during the tests. The model also disagreed one time.
-
-Prompt 2 asked about support for US Letter. Letter, Legal, and Tabloid were
-already there. The true answer was that they were there from the start, and that
-the real gap was the metric-only interface. The unit system came from that answer.
+- [Run it on your machine](#run-it-on-your-machine)
+- [What it does](#what-it-does)
+- [How the tiling works](#how-the-tiling-works)
+- [Tests](#tests)
+- [Layout](#layout)
+- [How to print the poster](#how-to-print-the-poster)
 
 ## Run it on your machine
 
@@ -172,16 +153,19 @@ There is no test framework. `test/cdp.js` operates a headless Chrome over the
 DevTools Protocol. It uses the WebSocket client that Node includes, thus the suite
 has no dependencies.
 
-The suite tests the app in a real browser. It reads pixels back from the rendered
-sheets, and it parses the exported PDF.
+Most suites test the app in a real browser. They read pixels back from the
+rendered sheets, and they parse the exported PDF. The `geometry` suite needs no
+browser, because `js/layout.js` is pure.
 
 | Suite | Checks |
 |---|---|
+| `geometry` | The poster arithmetic, the clamps, the presets, and the fit math. Pure functions, no browser |
 | `tiling` | Each sheet carries its own area of the artwork, margins stay white, glue overlaps agree on both neighbors, PDF vector path and rotation |
 | `guides` | Grid contrast, measured against white, black, and mid-gray artwork |
 | `theme` | The panel and the canvas change together, and guides keep their contrast in both themes |
 | `units` | Sheet presets, millimeter/inch conversion, and that a unit change never moves the geometry |
 | `placement` | The handles, the ratio lock, and that a locked box can never leave the artwork ratio |
+| `export` | The option matrix: page counts, guides, labels, encodings, resolution, and metadata |
 | `e2e` | Upload, drag, layout change, multi-page PDF, export, then the PDF read back |
 
 ## Layout

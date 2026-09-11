@@ -7,7 +7,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 npm start             # serve the app on http://localhost:8173 (PORT overrides the port)
 npm test              # all browser suites, one summary
-npm test units        # one suite: tiling | guides | theme | units | placement | e2e
+npm test units        # one suite: geometry | tiling | guides | theme | units
+                      #            placement | export | e2e  (substring match)
 node test/units.test.js   # the same suite, run directly
 npm run vendor        # copy pdf.js and pdf-lib from node_modules into vendor/
 node --check js/app.js    # syntax check; there is no build step and no linter
@@ -177,6 +178,9 @@ DevTools Protocol with the WebSocket client that Node includes. The suite
 thus has no dependencies, and it tests the real app in a real browser. It
 samples pixels from the rendered sheets, and it parses the exported PDF.
 
+A suite that sets `export const browser = false` runs in Node with no browser,
+which is how the `geometry` suite finishes in milliseconds.
+
 `test/harness.js` starts `server.js` on a free port for each suite. It gives
 `check(label, ok, detail)`. An assertion records a result and does not throw, thus
 one failure does not hide the other results. `test/fixtures.js` builds the artwork
@@ -184,16 +188,26 @@ inside the page, thus there are no binary fixtures on disk.
 
 These are the suites:
 
+- The `geometry` suite tests `js/layout.js` directly. It needs no browser.
 - The `tiling` suite tests the sheet math at pixel level.
 - The `guides` suite measures the contrast of the guides.
 - The `theme` suite tests the color scheme with `Emulation.setEmulatedMedia`.
 - The `units` suite tests the presets and the display layer.
 - The `placement` suite tests the handles and the ratio lock.
+- The `export` suite tests the export option matrix.
 - The `e2e` suite uploads a file, places it, exports the PDF, then reads the PDF back.
 
 Note: a top-level `const` in `Runtime.evaluate` stays after the call and collides
 on the next call. Always use `page.run()` or `page.runAsync()`. These helpers put
 the code in its own function scope.
+
+Note: headless Chrome writes a download one time for each file name, and it drops
+a later download that carries a name it already wrote. A suite thus cannot export
+more than one PDF through the Export button. The `export` suite calls
+`buildPosterPdf()` and reads the bytes back. The `e2e` suite covers the button.
+
+Note: pdf-lib deflates the font dictionary into an object stream. A font name is
+thus never visible in the raw bytes. Read the page resources instead.
 
 ## Deployment
 

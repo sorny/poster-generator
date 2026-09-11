@@ -2,9 +2,9 @@
 //   node test/run.js            all suites
 //   node test/run.js units      only suites whose file name matches "units"
 
-import { suite } from './harness.js';
+import { suite, plainSuite } from './harness.js';
 
-const SUITES = ['tiling', 'guides', 'theme', 'units', 'placement', 'e2e'];
+const SUITES = ['geometry', 'tiling', 'guides', 'theme', 'units', 'placement', 'export', 'e2e'];
 
 const filter = process.argv[2];
 const selected = filter ? SUITES.filter((s) => s.includes(filter)) : SUITES;
@@ -19,7 +19,9 @@ const totals = [];
 for (const key of selected) {
   const mod = await import(`./${key}.test.js`);
   console.log(`\n${mod.name}`);
-  const results = await suite(mod.name, mod.body);
+  const results = mod.browser === false
+    ? await plainSuite(mod.name, mod.body)
+    : await suite(mod.name, mod.body);
   totals.push({ key, name: mod.name, results });
 }
 

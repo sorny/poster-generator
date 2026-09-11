@@ -63,7 +63,7 @@ export function computeLayout(cfg) {
       tiles.push({
         col, row,
         index: row * cols + col,
-        label: `${String.fromCharCode(65 + row)}${col + 1}`,
+        label: `${rowLabel(row)}${col + 1}`,
         x0: col * advX,          // poster coordinate at the tile's left print edge
         y0: row * advY,
         hasLeft: col > 0,
@@ -75,6 +75,15 @@ export function computeLayout(cfg) {
   }
 
   return { pageW, pageH, margin, overlap, printW, printH, advX, advY, cols, rows, posterW, posterH, tiles };
+}
+
+/** Row names A to Z, then AA to AZ, so a tall poster keeps readable labels. */
+export function rowLabel(row) {
+  let name = '';
+  for (let n = row; n >= 0; n = Math.floor(n / 26) - 1) {
+    name = String.fromCharCode(65 + (n % 26)) + name;
+  }
+  return name;
 }
 
 /** Displayed aspect ratio of the artwork, accounting for 90 degree rotation. */

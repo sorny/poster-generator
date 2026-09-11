@@ -11,10 +11,11 @@ const INK = rgb(0.45, 0.45, 0.5);
 export async function buildPosterPdf(opts, onProgress = () => {}) {
   const { source, placement, layout, dpi, format, quality, marks, labels, assemblyMap, transparent } = opts;
   const pdf = await PDFDocument.create();
-  const font = await pdf.embedFont(StandardFonts.Helvetica);
+  // Only the labels and the assembly map draw text, so skip the font otherwise.
+  const font = labels || assemblyMap ? await pdf.embedFont(StandardFonts.Helvetica) : null;
 
   pdf.setTitle(`Poster ${layout.cols}x${layout.rows} - ${source.name}`);
-  pdf.setProducer('Poster Generator (offline)');
+  // Producer is not set here: pdf-lib overwrites it with its own name on save.
   pdf.setCreator('Poster Generator');
 
   if (assemblyMap) drawAssemblyMap(pdf, font, layout, source);

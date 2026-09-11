@@ -97,10 +97,28 @@ export async function loadPdf(path) {
   return PDFDocument.load(readFileSync(path));
 }
 
+/**
+ * Run a suite that needs no browser. `js/layout.js` is pure and DOM free, so its
+ * tests import it directly and finish in milliseconds.
+ */
+export async function plainSuite(name, body) {
+  const results = [];
+  const check = (label, ok, detail = '') => {
+    results.push({ label, ok, detail });
+    console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${label}${detail ? `  — ${detail}` : ''}`);
+  };
+  try {
+    await body({ check });
+  } catch (err) {
+    check(`${name} harness`, false, err.message);
+  }
+  return results;
+}
+
 /** Standalone entry point for a single suite file. */
-export async function main(name, body) {
+export async function main(name, body, { browser = true } = {}) {
   console.log(`\n${name}`);
-  const results = await suite(name, body);
+  const results = browser ? await suite(name, body) : await plainSuite(name, body);
   const failed = results.filter((r) => !r.ok);
   console.log(failed.length ? `\n${failed.length} failed` : `\n${results.length} passed`);
   process.exit(failed.length ? 1 : 0);
