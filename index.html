@@ -11,10 +11,17 @@
 
 <header class="topbar">
   <div class="brand">
-    <span class="mark" aria-hidden="true"></span>
+    <svg class="mark" viewBox="0 0 20 20" aria-hidden="true">
+      <rect x="1.6" y="1.6" width="16.8" height="16.8" rx="2.6" fill="none" stroke="currentColor" stroke-width="1.6"/>
+      <path d="M10 2.4v15.2M2.4 10h15.2" fill="none" stroke="currentColor" stroke-width="1.3" stroke-dasharray="2.4 2" opacity="0.65"/>
+    </svg>
     <h1>Poster Generator</h1>
   </div>
-  <p class="tagline">Tile an image or PDF across multiple sheets — everything stays on this machine.</p>
+  <p class="tagline">Tile an image or PDF across many sheets. Nothing leaves this machine.</p>
+  <div class="status">
+    <span class="stagehint" id="stagehint">No artwork loaded</span>
+    <label class="toggle"><input type="checkbox" id="showGrid" checked> Sheet grid</label>
+  </div>
 </header>
 
 <main class="shell">
@@ -152,10 +159,6 @@
   </aside>
 
   <section class="stage">
-    <div class="stagehead">
-      <label class="toggle"><input type="checkbox" id="showGrid" checked> Show sheet grid</label>
-      <span class="stagehint" id="stagehint">No artwork loaded</span>
-    </div>
     <div class="canvaswrap" id="canvaswrap">
       <canvas id="preview"></canvas>
     </div>

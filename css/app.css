@@ -99,29 +99,57 @@ body {
 
 /* ---------- top bar ---------- */
 
+/* One bar carries the identity on the left and the live state on the right.
+   align-items:center, not baseline: a baseline row mixes an icon with two text
+   sizes and drops the tagline several pixels below the title. */
 .topbar {
   display: flex;
-  align-items: baseline;
-  gap: 16px;
-  padding: 14px 20px;
+  align-items: center;
+  gap: 14px;
+  height: 48px;
+  padding: 0 18px;
   border-bottom: 1px solid var(--line);
   background: var(--panel);
   flex: none;
 }
 
-.brand { display: flex; align-items: center; gap: 10px; }
+.brand { display: flex; align-items: center; gap: 9px; flex: none; }
 
 .mark {
-  width: 18px; height: 18px;
-  border: 2px solid var(--accent);
-  border-radius: 3px;
-  background:
-    linear-gradient(var(--accent), var(--accent)) center / 100% 2px no-repeat,
-    linear-gradient(var(--accent), var(--accent)) center / 2px 100% no-repeat;
+  width: 20px;
+  height: 20px;
+  color: var(--accent);
+  flex: none;
 }
 
-.topbar h1 { font-size: 15px; font-weight: 650; margin: 0; letter-spacing: -0.01em; }
-.tagline { margin: 0; color: var(--muted); font-size: 12.5px; }
+.topbar h1 {
+  font-size: 14.5px;
+  font-weight: 650;
+  margin: 0;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.tagline {
+  margin: 0;
+  padding-left: 14px;
+  border-left: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 12.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.status {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+.status .toggle { flex: none; }
 
 /* ---------- layout ---------- */
 
@@ -298,16 +326,14 @@ button {
 
 .stage { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 
-.stagehead {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 9px 18px;
-  border-bottom: 1px solid var(--line);
-  background: var(--panel);
+.stagehint {
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.stagehint { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
 
 .canvaswrap { flex: 1; min-height: 0; position: relative; }
 #preview { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
@@ -333,6 +359,16 @@ button {
   font-size: 13px;
   max-width: 70ch;
   z-index: 10;
+}
+
+/* The tagline is the first thing to go when the bar gets tight: the status on
+   the right reports live state and earns its place. */
+@media (max-width: 1120px) {
+  .tagline { display: none; }
+}
+
+@media (max-width: 700px) {
+  .status .stagehint { display: none; }
 }
 
 @media (max-width: 860px) {

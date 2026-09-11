@@ -17,7 +17,8 @@ network calls, and no telemetry. When Wi-Fi is off, the page still works.
 |---|---|
 | ![Poster Generator, dark theme](docs/screenshot-dark.png) | ![Poster Generator, light theme](docs/screenshot-light.png) |
 
-The theme follows your operating system.
+The theme follows your operating system. One header bar carries the name on the
+left, and the live state of the poster on the right.
 
 ## Contents
 

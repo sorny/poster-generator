@@ -167,6 +167,13 @@ input handler rounds to it.
 removed. It fought with page scrolling on small windows, and the handles already
 size the artwork. Do not add it again without a request.
 
+**The header is one bar with `align-items: center`.** It mixes a 20 px icon with
+two text sizes. Under `align-items: baseline` the browser lines up text baselines
+across that row, which dropped the tagline about 5 px below the title. The sheet
+grid toggle and the status line live in this bar; they had their own second bar,
+which cost 38 px of canvas for two controls. `test/e2e.test.js` measures that all
+five header items share one center line and that no second bar returns.
+
 **Rotation uses 90° steps only.** The bounding box of the placed artwork thus
 stays parallel to the axes, which keeps hit tests and resize handles simple. Free
 angles need a rotated-box hit test through all of `app.js`.

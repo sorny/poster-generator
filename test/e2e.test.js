@@ -14,6 +14,43 @@ export async function body({ page, check, downloads }) {
   check('no console errors on boot', page.errors().length === 0,
     page.errors().map((e) => e.text).join(' | ').slice(0, 300));
 
+  // --- header layout. One bar, and every item on one optical line. A flex row
+  // that mixes an icon with two text sizes drops text off the line under
+  // align-items:baseline, which is what this guards against.
+  const header = JSON.parse(await page.run(`
+    const mid = (sel) => {
+      const e = document.querySelector(sel);
+      if (!e) return null;
+      const b = e.getBoundingClientRect();
+      return (b.top + b.bottom) / 2;
+    };
+    const bar = document.querySelector('.topbar').getBoundingClientRect();
+    const canvas = document.querySelector('.canvaswrap').getBoundingClientRect();
+    return JSON.stringify({
+      mids: ['.mark', '.topbar h1', '.tagline', '.stagehint', '.status .toggle'].map(mid),
+      barHeight: bar.height,
+      chrome: canvas.top,
+    });`));
+
+  const mids = header.mids.filter((m) => m !== null);
+  const spread = Math.max(...mids) - Math.min(...mids);
+  check('every header item sits on one line', mids.length === 5 && spread < 1,
+    `${mids.length} items, spread ${spread.toFixed(2)} px`);
+  check('the header is a single compact bar', header.barHeight <= 56, `${header.barHeight} px`);
+  check('the canvas starts directly under the header, with no second bar',
+    Math.abs(header.chrome - header.barHeight) < 0.5, `canvas top ${header.chrome}, bar ${header.barHeight}`);
+
+  // The grid toggle moved into the header and must still drive the preview.
+  check('the sheet grid toggle is in the header and still works',
+    await page.run(`
+      const t = document.getElementById('showGrid');
+      if (!t.closest('.topbar')) return false;
+      const before = t.checked;
+      t.checked = !before; t.dispatchEvent(new Event('change'));
+      const flipped = t.checked !== before;
+      t.checked = before; t.dispatchEvent(new Event('change'));
+      return flipped;`));
+
   const poster = () => page.run(text('posterReadout'));
   check('default 2x3 A4 poster', /38 × 83\.1 cm/.test(await poster()), await poster());
 
